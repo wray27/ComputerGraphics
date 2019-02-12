@@ -32,7 +32,7 @@ vec4 cameraPos(0,0.2,-2,1.0);
 
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
-
+mat4 setRotationMat(mat4 R,float yaw);
 bool Update();
 void Draw(screen* screen);
 bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles, Intersection& closestIntersection );
@@ -69,6 +69,7 @@ void Draw(screen* screen)
 
   Intersection closestIntersection;
 
+
   for(int y = 0; y < SCREEN_HEIGHT; y++) {
 
     for(int x = 0; x < SCREEN_WIDTH; x++) {
@@ -84,6 +85,32 @@ void Draw(screen* screen)
     }
   }
 }
+mat4 setRotationMat(mat4 R,float yaw){
+  //First Column
+  R[0][0] = cos(yaw);
+  R[1][0] = 0;
+  R[2][0] = -sin(yaw);
+  R[3][0] = 1;
+  //Second Column
+  R[0][1] = 0;
+  R[1][1] = 1;
+  R[2][1] = 0;
+  R[3][1] = 1;
+  //Third Column
+  R[0][2] = sin(yaw);
+  R[1][2] = 0;
+  R[2][2] = cos(yaw);
+  R[3][2] = 1;
+
+  //Fourth column
+  R[0][3] = cos(yaw);
+  R[1][3] = 1;
+  R[2][3] = 1;
+  R[3][3] = 1;
+
+  return R;
+
+}
 
 /*Place updates of parameters here*/
 bool Update()
@@ -94,6 +121,25 @@ bool Update()
   // float dt = float(t2-t);
   t = t2;
   float change =0.3f;
+
+  mat4 R;
+  
+  float yaw = 3.14151926535897932354626;
+
+  setRotationMat(R,yaw);
+  vec4 forward;
+  vec4 left;
+  vec4 right;
+  vec4 down;
+
+
+  
+  // vec4 down(    R[1][0], R[1][1], R[1][2], 1 );
+  
+
+
+
+
 
   SDL_Event e;
   while(SDL_PollEvent(&e))
@@ -108,29 +154,57 @@ bool Update()
         switch(key_code)
         {
         	case SDLK_UP:
+          {
             /* Move camera forward */
-            cameraPos=vec4(cameraPos[0],cameraPos[1],cameraPos[2]+change,cameraPos[3]);
+            setRotationMat(R,yaw);
+            vec4 forward( R[2][0], R[2][1], R[2][2], 1 );
+            cameraPos = forward * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]) ;
+            cameraPos[2] = cameraPos[2] + change;
             break;
+          }
           case SDLK_DOWN:
+          {
             /* Move camera backwards */
-            cameraPos=vec4(cameraPos[0],cameraPos[1],cameraPos[2]-change,cameraPos[3]);
+            setRotationMat(R,yaw);
+            vec4 down(    R[1][0], R[1][1], R[1][2], 1 );
+            cameraPos = down * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
+            cameraPos[2] = cameraPos[2] - change;
             break;
+          }
         	case SDLK_LEFT:
+          {
             /* Move camera left */
-            cameraPos=vec4(cameraPos[0]-change,cameraPos[1],cameraPos[2],cameraPos[3]);
+            setRotationMat(R,yaw);
+            vec4 left(   R[0][0], R[0][1], R[0][2], 1 );
+            cameraPos = left * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
+            cameraPos[0] = cameraPos[0] - change;
             break;
+          }
         	case SDLK_RIGHT:
+          {
             /* Move camera right */
-            cameraPos=vec4(cameraPos[0]+change,cameraPos[1],cameraPos[2],cameraPos[3]);
+            setRotationMat(R,yaw);
+            vec4 right(   R[0][0], R[0][1], R[0][2], 1 );
+            cameraPos = right * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
+            cameraPos[0] = cameraPos[0] + change;
             break;
+          }
         	case SDLK_ESCAPE:
+          {
             /* Move camera quit */
             return false;
+          }
+            // /* Move camera quit */
+            // return false;
         }
       }  
     }
-  return true;
+    return true;
   }
+  return true;
+
+
+
 }
 
 
@@ -152,12 +226,19 @@ bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles
    vec3 d = vec3(dir.x, dir.y,dir.z);
 
    mat3 A(-d, e1, e2);
-   vec3 x = glm::inverse( A ) * b;
+   // vec3 x = glm::inverse( A ) * b;
 
-   float t = x.x;
-   float u = x.y;
-   float v = x.z;
+   // float t = x.x;
+   // float u = x.y;
+   // float v = x.z;
+   mat3 A1(b, e1, e2); //t
+   float t = glm::determinant(A1) / glm::determinant(A);
 
+   mat3 A2(-d,b,e2); // u 
+   float u = glm::determinant(A2) / glm::determinant(A);
+
+   mat3 A3(-d, e1, b); // v
+   float v = glm::determinant(A3) / glm::determinant(A);
    //vec3 dist = t * d;
    //float mag = sqrt(dist.length());
 
@@ -177,28 +258,4 @@ bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles
   return intersects_triangle;
 }
 
-mat3 cramersRule(mat3 A) {
 
-  float a = A[0][0];
-  float b = A[0][1];
-  float c = A[0][2];
-  float d = A[1][0];
-  float e = A[1][1];
-  float f = A[1][2];
-  float g = A[2][0];
-  float h = A[2][1];
-  float i = A[2][2];
-
-
-  float det = ((a * e * i) + (b * f * g) +(c * d * h)) - ((b * d * i) + (h * f * a) + (g * e * c));
-  // A = glm::transpose(glm::adjoint(A));
-
-  return (1/det) * A; 
-
-}
-
-// void adjoint(mat3 A){
-
-//   mat3 
-
-// }
