@@ -93,39 +93,44 @@ bool Update()
   int t2 = SDL_GetTicks();
   // float dt = float(t2-t);
   t = t2;
+  float change =0.3f;
 
   SDL_Event e;
   while(SDL_PollEvent(&e))
+  {
+    if (e.type == SDL_QUIT)
     {
-      if (e.type == SDL_QUIT)
-	{
-	  return false;
-	}
-      else
-	if (e.type == SDL_KEYDOWN)
-	  {
-	    int key_code = e.key.keysym.sym;
-	    switch(key_code)
-	      {
-	      case SDLK_UP:
-		/* Move camera forward */
-		break;
-	      case SDLK_DOWN:
-		/* Move camera backwards */
-		break;
-	      case SDLK_LEFT:
-		/* Move camera left */
-		break;
-	      case SDLK_RIGHT:
-		/* Move camera right */
-		break;
-	      case SDLK_ESCAPE:
-		/* Move camera quit */
-		return false;
-	      }
-	  }  
+      return false;
+    }else{
+      if (e.type == SDL_KEYDOWN)
+      {
+        int key_code = e.key.keysym.sym;
+        switch(key_code)
+        {
+        	case SDLK_UP:
+            /* Move camera forward */
+            cameraPos=vec4(cameraPos[0],cameraPos[1],cameraPos[2]+change,cameraPos[3]);
+            break;
+          case SDLK_DOWN:
+            /* Move camera backwards */
+            cameraPos=vec4(cameraPos[0],cameraPos[1],cameraPos[2]-change,cameraPos[3]);
+            break;
+        	case SDLK_LEFT:
+            /* Move camera left */
+            cameraPos=vec4(cameraPos[0]-change,cameraPos[1],cameraPos[2],cameraPos[3]);
+            break;
+        	case SDLK_RIGHT:
+            /* Move camera right */
+            cameraPos=vec4(cameraPos[0]+change,cameraPos[1],cameraPos[2],cameraPos[3]);
+            break;
+        	case SDLK_ESCAPE:
+            /* Move camera quit */
+            return false;
+        }
+      }  
     }
   return true;
+  }
 }
 
 
