@@ -46,6 +46,7 @@ vector<Triangle> triangles;
 int main( int argc, char* argv[] )
 {
 	
+
 	screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
 	LoadTestModel(triangles);
 
@@ -85,27 +86,46 @@ void Draw(screen* screen)
 		}
 	}
 }
-mat4 setRotationMat(mat4 R,float yaw){
+mat4 setRotationMat(mat4 R, float yaw){
 	//First Column
 	// R = mat4(right, up, forward, -from)
 	// R[3][3] = 1
-	R[0][0] = cos(yaw);
-	R[1][0] = 0;
-	R[2][0] = -sin(yaw);
+
+	float A = 0;
+	float B = yaw;
+	float C = 0;
+	// Compute rotation matrix
+	R[0][0] =  cos(C)*cos(B);
+	R[1][0] =  sin(C)*cos(B);
+	R[2][0] = -sin(B);
+
+	R[0][1] = -sin(C)*cos(A) + cos(C)*sin(B)*sin(A);
+	R[1][1] =  cos(C)*cos(A) + sin(C)*sin(B)*sin(A);
+	R[2][1] =  cos(B)*sin(A);
+
+	R[0][2] =  sin(C)*sin(A) + cos(C)*sin(B)*cos(A);
+	R[1][2] = -cos(C)*sin(A) + sin(C)*sin(B)*cos(A);
+	R[2][2] =  cos(B)*cos(A);
+
+
+	// R[0][0] = cos(yaw);
+	// R[1][0] = 0;
+	// R[2][0] = -sin(yaw);
 	R[3][0] = 0;
-	//Second Column
-	R[0][1] = 0;
-	R[1][1] = 1;
-	R[2][1] = 0;
+
+	// //Second Column
+	// R[0][1] = 0;
+	// R[1][1] = 1;
+	// R[2][1] = 0;
 	R[3][1] = 0;
-	//Third Column
-	R[0][2] = sin(yaw);
-	R[1][2] = 0;
-	R[2][2] = cos(yaw);
+	// //Third Column
+	// R[0][2] = sin(yaw);
+	// R[1][2] = 0;
+	// R[2][2] = cos(yaw);
 	R[3][2] = 0;
 
 	//Fourth column
-	for(int i=0; i< 4;i++){
+	for (int i = 0; i < 3; i++){
 		R[i][3] = -cameraPos[i];
 		
 	}
@@ -126,11 +146,9 @@ bool Update()
 	int t2 = SDL_GetTicks();
 	// float dt = float(t2-t);
 	t = t2;
-	float change =0.01f;
+	float change =0.1f;
 
 	// mat4 R;
-
-	float yaw = 0;
 
 	// R = setRotationMat(R,yaw);
 	vec4 forward;
@@ -166,7 +184,7 @@ bool Update()
 						// vec4 forward( R[2][0], R[2][1], R[2][2], 1 );
 						// cameraPos = forward * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
 						cameraPos[2] = cameraPos[2] + change;
-						yaw += 0.6f;
+						yaw += 0.1f;
 						break;
 					}
 					case SDLK_DOWN:
@@ -176,7 +194,7 @@ bool Update()
 						// vec4 down(    R[1][0], R[1][1], R[1][2], 1 );
 						// cameraPos = down * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
 						cameraPos[2] = cameraPos[2] - change;
-						yaw -= 0.6f;
+						yaw -= 0.1f;
 						break;
 					}
 					case SDLK_LEFT:
@@ -186,7 +204,7 @@ bool Update()
 						// vec4 left(   R[0][0], R[0][1], R[0][2], 1 );
 						// cameraPos = left * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
 						cameraPos[0] = cameraPos[0] - change;
-						yaw -= 0.6f;
+						yaw -= 0.1f;
 						break;
 					}
 					case SDLK_RIGHT:
@@ -196,7 +214,7 @@ bool Update()
 						// vec4 right(   R[0][0], R[0][1], R[0][2], 1 );
 						// cameraPos = right * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
 						cameraPos[0] = cameraPos[0] + change;
-						yaw += 0.6f;
+						yaw += 0.1f;
 						break;
 					}
 					case SDLK_ESCAPE:
