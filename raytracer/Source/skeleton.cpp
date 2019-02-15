@@ -13,7 +13,7 @@ using glm::vec4;
 using glm::mat4;
 
 SDL_Event event;
-
+#define PI 3.14159255358979323546
 #define SCREEN_WIDTH 256
 #define SCREEN_HEIGHT 256
 #define FULLSCREEN_MODE false
@@ -30,16 +30,27 @@ vec4 cameraPos(0,0,-3,1.0);
 float yaw = 0;
 
 
+
+
+
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
 mat4 setRotationMat(mat4 R,float yaw);
 bool Update();
+vec3 DirectLight( const Intersection& i );
 void Draw(screen* screen);
 bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles, Intersection& closestIntersection );
 //void LoadTestModel( std::vector<Triangle>&triangles );
 
 vector<Triangle> triangles;
-
+/*struct Triangle
+   {
+       vec4 v0;
+       vec4 v1;
+       vec4 v2;
+       vec4 normal;
+       vec3 color;
+};*/
 
 //void ray_direction(int x, int y);
 
@@ -51,10 +62,10 @@ int main( int argc, char* argv[] )
 	LoadTestModel(triangles);
 
 	while ( Update())
-		{
-			Draw(screen);
-			SDL_Renderframe(screen);
-		}
+	{
+		Draw(screen);
+		SDL_Renderframe(screen);
+	}
 
 	SDL_SaveImage( screen, "screenshot.bmp" );
 
@@ -67,18 +78,18 @@ void Draw(screen* screen)
 {
 
 	memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
-
 	Intersection closestIntersection;
-
 
 	for(int y = 0; y < SCREEN_HEIGHT; y++) {
 
 		for(int x = 0; x < SCREEN_WIDTH; x++) {
 			vec4 d = vec4(x - (SCREEN_WIDTH / 2), y - (SCREEN_HEIGHT / 2), focalLength, 1.0);
 			bool b = ClosestIntersection(cameraPos,d, triangles, closestIntersection);
+			
 			if(b) {
-				int i = closestIntersection.triangleIndex;
-				vec3 colour = triangles[i].color;
+				// int i = closestIntersection.triangleIndex;
+				// vec3 colour = triangles[i].color;
+				vec3 colour = DirectLight(closestIntersection);
 				PutPixelSDL(screen, x, y, colour);
 			} else {
 				PutPixelSDL(screen, x, y, vec3(0.0,0.0,0.0));
@@ -234,6 +245,37 @@ bool Update()
 
 
 }
+vec3 DirectLight( const Intersection& i ){
+	vec4 lightPos = vec4( 0, -0.5, -0.7, 1.0 );
+
+	vec3 colour = vec3(0.0f,0.0f,0.0f);
+	
+	//color vector describes the power P
+	vec3 lightColor = 14.f * vec3( 1.0f, 1.0f, 1.0f );
+	
+	//calculatiing the distance from light source - r
+	float distance = glm::distance(lightPos,i.position);
+	
+	// unit vector describing the direction from the surface point to the light source
+	vec4 _r = glm::normalize(lightPos - i.position);
+	// vec3 r = glm::normalize(vec3(_r.x,_r.y,_r.z));
+
+	//normal pointing out of the surface as a unit vector
+	vec4 _n = glm::normalize(triangles[i.triangleIndex].normal);
+	// vec3 n = glm::normalize(vec3(triangles[i.triangleIndex].normal.x,triangles[i.triangleIndex].normal.y,triangles[i.triangleIndex].normal.x));
+
+
+
+	colour = (lightColor * max(glm::dot(_r,_n),0.0f)) / (float)(4*PI*pow(distance,2));
+
+	
+
+
+
+
+	return colour;
+
+}
 
 
 
@@ -256,6 +298,7 @@ bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles
 	 vec3 d = vec3(dir.x, dir.y,dir.z);
 
 	 mat3 A(-d, e1, e2);
+
 	 // vec3 x = glm::inverse( A ) * b;
 
 	 // float t = x.x;
