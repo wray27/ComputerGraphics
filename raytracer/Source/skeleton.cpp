@@ -28,6 +28,7 @@ struct Intersection
 float focalLength = 256;
 vec4 cameraPos(0,0,-3,1.0);
 float yaw = 0;
+vec4 lightPos = vec4( 0, -0.5, -0.7, 1.0 );
 
 
 
@@ -159,20 +160,39 @@ bool Update()
 	t = t2;
 	float change =0.1f;
 
-	// mat4 R;
+	mat4 R;
+	R = setRotationMat(R,yaw);
+	vec4 forward( R[2][0], R[2][1], R[2][2], 1 );
+	vec4 right(   R[0][0], R[0][1], R[0][2], 1 );
+   	vec4 down(    R[1][0], R[1][1], R[1][2], 1 );
+	
+	
+	// vec4 left;
+	// vec4 right;
+	// vec4 down;
 
-	// R = setRotationMat(R,yaw);
-	vec4 forward;
-	vec4 left;
-	vec4 right;
-	vec4 down;
+
+	// if( keystate[SDLK_w] )
+ //       lightPos += forward;
+	
+	// if( keystate[SDLK_s] )
+	// 	lightPos -= forward;	
+	
+	// if( keystate[SDLK_a] )
+	// 	lightPos -= right;			
+	
+	// if( keystate[SDLK_d] )
+	// 	lightPos += right;			
+	
+	// if( keystate[SDLK_e] )
+	// 	lightPos += down;
+	
+	// if( keystate[SDLK_q] )
+	// 	lightPos -= down;
+					
 
 
 	
-	// vec4 down(    R[1][0], R[1][1], R[1][2], 1 );
-	
-
-
 
 
 
@@ -187,7 +207,37 @@ bool Update()
 			{
 				int key_code = e.key.keysym.sym;
 				switch(key_code)
-				{
+				{	
+					case SDLK_w:
+					{
+						lightPos += forward;
+						break;
+					}
+					case SDLK_s:
+					{
+						lightPos -= forward;
+						break;
+					}
+					case SDLK_a:
+					{
+						lightPos += right;
+						break;
+					}
+					case SDLK_d:
+					{
+						lightPos -= right;
+						break;
+					}
+					case SDLK_e:
+					{
+						lightPos -= down;
+						break;
+					}
+					case SDLK_q:
+					{
+						lightPos += down;
+						break;
+					}
 					case SDLK_UP:
 					{
 						/* Move camera forward */
@@ -195,7 +245,7 @@ bool Update()
 						// vec4 forward( R[2][0], R[2][1], R[2][2], 1 );
 						// cameraPos = forward * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
 						cameraPos[2] = cameraPos[2] + change;
-						yaw += 0.1f;
+						yaw += change;
 						break;
 					}
 					case SDLK_DOWN:
@@ -205,7 +255,7 @@ bool Update()
 						// vec4 down(    R[1][0], R[1][1], R[1][2], 1 );
 						// cameraPos = down * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
 						cameraPos[2] = cameraPos[2] - change;
-						yaw -= 0.1f;
+						yaw -= change;
 						break;
 					}
 					case SDLK_LEFT:
@@ -215,7 +265,7 @@ bool Update()
 						// vec4 left(   R[0][0], R[0][1], R[0][2], 1 );
 						// cameraPos = left * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
 						cameraPos[0] = cameraPos[0] - change;
-						yaw -= 0.1f;
+						yaw -= change;
 						break;
 					}
 					case SDLK_RIGHT:
@@ -225,7 +275,7 @@ bool Update()
 						// vec4 right(   R[0][0], R[0][1], R[0][2], 1 );
 						// cameraPos = right * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
 						cameraPos[0] = cameraPos[0] + change;
-						yaw += 0.1f;
+						yaw += change;
 						break;
 					}
 					case SDLK_ESCAPE:
@@ -246,7 +296,7 @@ bool Update()
 
 }
 vec3 DirectLight( const Intersection& i ){
-	vec4 lightPos = vec4( 0, -0.5, -0.7, 1.0 );
+	
 
 	vec3 colour = vec3(0.0f,0.0f,0.0f);
 	
@@ -281,7 +331,7 @@ vec3 DirectLight( const Intersection& i ){
 
 bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles, Intersection& closestIntersection) {
 
-	bool intersects_triangle = false;
+	bool intersectsTriangle = false;
 	closestIntersection.distance = std :: numeric_limits<float>::max();
 	mat4 R;
 	R = setRotationMat(R,yaw);
@@ -319,7 +369,7 @@ bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles
 
 
 	 if(t >= 0 && u >= 0 && v >= 0 && (u+v) <= 1) {
-		intersects_triangle = true;
+		intersectsTriangle = true;
 
 		//updating closest intersection
 		if(t < closestIntersection.distance) {
@@ -330,7 +380,7 @@ bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles
 
 	 }
 	}
-	return intersects_triangle;
+	return intersectsTriangle;
 }
 
 
