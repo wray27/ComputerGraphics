@@ -90,7 +90,7 @@ void Draw(screen* screen)
 			if(b) {
 				// int i = closestIntersection.triangleIndex;
 				// vec3 colour = triangles[i].color;
-				vec3 colour = triangles[closestIntersection.triangleIndex].color*DirectLight(closestIntersection);
+				vec3 colour = DirectLight(closestIntersection);
 				PutPixelSDL(screen, x, y, colour);
 			} else {
 				PutPixelSDL(screen, x, y, vec3(0.0,0.0,0.0));
@@ -296,9 +296,24 @@ bool Update()
 
 }
 vec3 DirectLight( const Intersection& i ){
+	vec3 colour = vec3(0.0f,0.0f,0.0f);
+
+
+
+	// calculates whether an area has a shadow
+	Intersection shadowI;
+	vec4 dir = lightPos - i.position;
+	ClosestIntersection(i.position+1e-6f*dir,dir,triangles,shadowI);
 	
 
-	vec3 colour = vec3(0.0f,0.0f,0.0f);
+
+	if (shadowI.distance < 1){
+		colour =  vec3(0,0,0);
+		return colour;
+
+	}
+
+	
 	
 	//color vector describes the power P
 	vec3 lightColor = 14.f * vec3( 1.0f, 1.0f, 1.0f );
@@ -315,10 +330,17 @@ vec3 DirectLight( const Intersection& i ){
 	// vec3 n = glm::normalize(vec3(triangles[i.triangleIndex].normal.x,triangles[i.triangleIndex].normal.y,triangles[i.triangleIndex].normal.x));
 
 
-
+	// Adds light to the scene withno colour
 	colour = (lightColor * max(glm::dot(_r,_n),0.0f)) / (float)(4*PI*pow(distance,2));
+	// adds colour tot the scene
+	colour = colour * triangles[i.triangleIndex].color;
 
-	
+
+
+
+
+
+
 
 
 
