@@ -90,7 +90,7 @@ void Draw(screen* screen)
 			if(b) {
 				// int i = closestIntersection.triangleIndex;
 				// vec3 colour = triangles[i].color;
-				vec3 colour = DirectLight(closestIntersection);
+				vec3 colour = triangles[closestIntersection.triangleIndex].color*DirectLight(closestIntersection);
 				PutPixelSDL(screen, x, y, colour);
 			} else {
 				PutPixelSDL(screen, x, y, vec3(0.0,0.0,0.0));
