@@ -395,27 +395,30 @@ bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles
 	 mat3 A1(b, e1, e2); //t
 	 float t = glm::determinant(A1) / glm::determinant(A);
 
-	 mat3 A2(-d,b,e2); // u 
-	 float u = glm::determinant(A2) / glm::determinant(A);
+	 if(t >= 0) {
 
-	 mat3 A3(-d, e1, b); // v
-	 float v = glm::determinant(A3) / glm::determinant(A);
-	 //vec3 dist = t * d;
-	 //float mag = sqrt(dist.length());
+	  mat3 A2(-d,b,e2); // u 
+	  float u = glm::determinant(A2) / glm::determinant(A);
 
-	// Re--jig Code so only do computation if its close
+	  mat3 A3(-d, e1, b); // v
+	  float v = glm::determinant(A3) / glm::determinant(A);
+	  //vec3 dist = t * d;
+	  //float mag = sqrt(dist.length());
+
+	  // Re--jig Code so only do computation if its close
 
 
-	 if(t >= 0 && u >= 0 && v >= 0 && (u+v) <= 1) {
-		intersectsTriangle = true;
+	  if(u >= 0 && v >= 0 && (u+v) <= 1) {
+		 intersectsTriangle = true;
 
-		//updating closest intersection
-		if(t < closestIntersection.distance) {
+		 //updating closest intersection
+		 if(t < closestIntersection.distance) {
 			closestIntersection.position = start + (t*dir);
 			closestIntersection.triangleIndex = i;
 			closestIntersection.distance = t;
-		}
+		 }
 
+	  }
 	 }
 	}
 	return intersectsTriangle;
