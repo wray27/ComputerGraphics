@@ -307,7 +307,7 @@ vec3 light( const Intersection& i ){
 	// calculates whether an area has a shadow
 	Intersection shadowI;
 	vec4 dir = lightPos - i.position;
-	ClosestIntersection(i.position+1e-6f*dir,dir,triangles,shadowI);
+	ClosestIntersection(i.position+1e-3f*dir,dir,triangles,shadowI);
 	
 	if (shadowI.distance < 1){
 		colour =  vec3(0,0,0);
