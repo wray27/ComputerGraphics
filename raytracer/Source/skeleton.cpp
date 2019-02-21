@@ -39,6 +39,8 @@ vec4 lightPos = vec4( 0, -0.5, -0.7, 1.0 );
 mat4 setRotationMat(mat4 R,float yaw);
 bool Update();
 vec3 DirectLight( const Intersection& i );
+vec3 IndirectLight( const Intersection& i );
+vec3 light( const Intersection& i );
 void Draw(screen* screen);
 bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles, Intersection& closestIntersection );
 //void LoadTestModel( std::vector<Triangle>&triangles );
@@ -90,7 +92,7 @@ void Draw(screen* screen)
 			if(b) {
 				// int i = closestIntersection.triangleIndex;
 				// vec3 colour = triangles[i].color;
-				vec3 colour = DirectLight(closestIntersection);
+				vec3 colour = IndirectLight(closestIntersection);
 				PutPixelSDL(screen, x, y, colour);
 			} else {
 				PutPixelSDL(screen, x, y, vec3(0.0,0.0,0.0));
@@ -295,7 +297,9 @@ bool Update()
 
 
 }
-vec3 DirectLight( const Intersection& i ){
+
+
+vec3 light( const Intersection& i ){
 	vec3 colour = vec3(0.0f,0.0f,0.0f);
 
 
@@ -305,8 +309,6 @@ vec3 DirectLight( const Intersection& i ){
 	vec4 dir = lightPos - i.position;
 	ClosestIntersection(i.position+1e-6f*dir,dir,triangles,shadowI);
 	
-
-
 	if (shadowI.distance < 1){
 		colour =  vec3(0,0,0);
 		return colour;
@@ -333,17 +335,31 @@ vec3 DirectLight( const Intersection& i ){
 	// Adds light to the scene withno colour
 	colour = (lightColor * max(glm::dot(_r,_n),0.0f)) / (float)(4*PI*pow(distance,2));
 	// adds colour tot the scene
-	colour = colour * triangles[i.triangleIndex].color;
+	// colour = colour * triangles[i.triangleIndex].color;
 
 
+	return colour;
+
+}
+
+vec3 DirectLight(const Intersection& i ){
+
+	vec3 ret = light(i) * triangles[i.triangleIndex].color;
+	return ret;
+}
 
 
+vec3 IndirectLight(const Intersection& i) {
 
-
-
-
-
-
+	vec3 colour;
+	vec3 indirectLight = 0.5f*vec3(1.0f,1.0f,1.0f);
+	float distance = glm::distance(lightPos,i.position);
+	vec3 illum = light(i);
+	colour = (illum + indirectLight) * triangles[i.triangleIndex].color;
+	
+	// adds colour tot the scene
+	//colour = colour * triangles[i.triangleIndex].color;
+	//colour = triangles[i.triangleIndex].color * total;
 
 	return colour;
 
