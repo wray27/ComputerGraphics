@@ -5,6 +5,8 @@
 #include "TestModelH.h"
 #include <stdint.h>
 #include "limits"
+#include "ObjLoader.h"
+
 
 using namespace std;
 using glm::vec3;
@@ -59,10 +61,14 @@ vector<Triangle> triangles;
 
 int main( int argc, char* argv[] )
 {
-	
+	int objectCount= 0;
 
 	screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
 	LoadTestModel(triangles);
+	if(loadOBJ("./Objects/bunny.obj",triangles)) {
+		cout << "Object " << objectCount << " loaded successfully!\n";
+		objectCount ++;
+	}
 
 	while ( Update())
 	{
@@ -353,7 +359,7 @@ vec3 IndirectLight(const Intersection& i) {
 
 	vec3 colour;
 	vec3 indirectLight = 0.5f*vec3(1.0f,1.0f,1.0f);
-	float distance = glm::distance(lightPos,i.position);
+	// float distance = glm::distance(lightPos,i.position);
 	vec3 illum = light(i);
 	colour = (illum + indirectLight) * triangles[i.triangleIndex].color;
 	
