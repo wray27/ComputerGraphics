@@ -128,7 +128,7 @@ void Draw(screen* screen)
   
 
   // focal lenght of the camera
-  float f = SCREEN_HEIGHT/2;
+  float f = SCREEN_HEIGHT;
   for(size_t s =0; s < stars.size();s++){
     vec3 star= 0.2f * vec3(1,1,1)/(stars[s].z*stars[s].z);
     u[s]= f * (stars[s].x/stars[s].z) +(SCREEN_WIDTH/2);
