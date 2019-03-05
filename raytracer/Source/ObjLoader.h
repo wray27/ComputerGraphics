@@ -22,6 +22,8 @@ using glm::vec4;
 // f is a face
 
 Triangle scale(Triangle tri){
+
+
 	float L = 555;
 	tri.v0 *= 2/L;
 	tri.v1 *= 2/L;
@@ -48,7 +50,7 @@ Triangle scale(Triangle tri){
 }
 
 
-bool loadOBJ(const char * path, std::vector<Triangle>& triangles){
+bool loadOBJ(const char * path, std::vector<Triangle>&triangles){
 	char* buf = (char*)malloc(sizeof(char)*128);
 	size_t size = sizeof(char)*128;
 	FILE * file = fopen(path, "r");
@@ -81,18 +83,21 @@ bool loadOBJ(const char * path, std::vector<Triangle>& triangles){
 		    fscanf(file, "%f %f %f\n", &vertex.x, &vertex.y, &vertex.z );
 		    vertex.w = 1;
 		    temp_vertices.push_back(vertex);
-		}else if ( strcmp( lineHeader, "vt" ) == 0 ){
+		}
+		else if ( strcmp( lineHeader, "vt" ) == 0 ){
 			// vt”, then the rest has to be 2 floats, so create a glm::vec2 and add it to the vector.
 		    glm::vec2 uv;
 		    fscanf(file, "%f %f\n", &uv.x, &uv.y );
 		    temp_uvs.push_back(uv);
-		}else if ( strcmp( lineHeader, "vn" ) == 0 ){
+		}
+		else if ( strcmp( lineHeader, "vn" ) == 0 ){
 			// for the normal of a vertex
 		    glm::vec4 normal;
 		    fscanf(file, "%f %f %f\n", &normal.x, &normal.y, &normal.z );
 		    normal.w = 1;
 		    temp_normals.push_back(normal);
-		}else if ( strcmp( lineHeader, "f" ) == 0 ){
+		}
+		else if ( strcmp( lineHeader, "f" ) == 0 ){
 			// for the face
 		    std::string vertex1, vertex2, vertex3;
 		    unsigned int vertexIndex[3];
@@ -121,6 +126,7 @@ bool loadOBJ(const char * path, std::vector<Triangle>& triangles){
 			vec4 B;
 			vec4 C;
 			vec4 normal;
+			// max and minimum vertex function to find the correct scale!
 			for( int i=0; i < vertexIndices.size(); i++ ){
 				// For each vertex of each triangle
 				unsigned int vertexIndex = vertexIndices[i];
@@ -128,11 +134,13 @@ bool loadOBJ(const char * path, std::vector<Triangle>& triangles){
 				if(i == 1 ) B = temp_vertices[ vertexIndex-1 ];
 				if(i == 2 ) C = temp_vertices[ vertexIndex-1 ];
 			}
+
+
 			
 			// normal = temp_normals[normalIndex[0]-1];
 
 			Triangle temp_triangle = Triangle( A, B, C, white );
-			// temp_triangle = scale(temp_triangle);
+			//temp_triangle = scale(temp_triangle);
 			triangles.push_back(temp_triangle);			
 
 		}

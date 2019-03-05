@@ -67,6 +67,7 @@ int main( int argc, char* argv[] )
 	LoadTestModel(triangles);
 	if(loadOBJ("./Objects/bunny.obj",triangles)) {
 		cout << "Object " << objectCount << " loaded successfully!\n";
+		cout << triangles[0].v1.x << "," << triangles[0].v1.y << "," << triangles[0].v1.z << endl;
 		objectCount ++;
 	}
 
@@ -96,9 +97,9 @@ void Draw(screen* screen)
 			bool b = ClosestIntersection(cameraPos,d, triangles, closestIntersection);
 			
 			if(b) {
-				// int i = closestIntersection.triangleIndex;
-				// vec3 colour = triangles[i].color;
-				vec3 colour = IndirectLight(closestIntersection);
+				 int i = closestIntersection.triangleIndex;
+				 vec3 colour = triangles[i].color;
+				//vec3 colour = IndirectLight(closestIntersection);
 				PutPixelSDL(screen, x, y, colour);
 			} else {
 				PutPixelSDL(screen, x, y, vec3(0.0,0.0,0.0));
