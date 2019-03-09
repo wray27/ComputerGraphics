@@ -34,14 +34,17 @@ float f = SCREEN_WIDTH;
 bool Update();
 void Draw(screen* screen);
 void VertexShader( const vec4& v, ivec2& p );
-void Interpolate( ivec2 a, ivec2 b, vector<ivec2>& result );
+void Interpolate( vec2 a, vec2 b, vector<ivec2>& result );
 void DrawLineSDL( screen* screen, ivec2 a, ivec2 b, vec3 color );
 mat4 setRotationMat(mat4 R,float yaw);
 void DrawPolygonEdges( const vector<vec4>& vertices, screen* screen );
+void ComputePolygonRows(const vector<ivec2>& vertexPixels, vector<ivec2>& leftPixels, vector<ivec2>& rightPixels );
+void testComputePolygonRows();
+
 
 int main( int argc, char* argv[] )
 {
-  
+  testComputePolygonRows();
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
   LoadTestModel(triangles);
 
@@ -119,8 +122,149 @@ void VertexShader( const vec4& v, ivec2& p ){
 
 
 }
+void ComputePolygonRows(
+       const vector<ivec2>& vertexPixels,
+       vector<ivec2>& leftPixels,
+       vector<ivec2>& rightPixels )
+{
 
-void Interpolate( ivec2 a, ivec2 b, vector<ivec2>& result )
+
+    
+    // 1. Find max and min y-value of the polygon
+    //    and compute the number of rows it occupies.
+    int largest =  -numeric_limits<int>::max();
+    int smallest= +numeric_limits<int>::max();
+    for(int i = 0; i < vertexPixels.size(); i ++){
+        if(vertexPixels[i].y < smallest) smallest = vertexPixels[i].y;
+        if(vertexPixels[i].y > largest) largest = vertexPixels[i].y;
+    }
+    
+    int ROWS = largest - smallest +1;
+    // cout << ROWS <<endl;
+
+
+
+    // 2. Resize leftPixels and rightPixels
+    //    so that they have an element for each row.
+    leftPixels.resize(ROWS);
+    rightPixels.resize(ROWS);
+    // cout << leftPixels.size() <<endl;
+    
+
+
+
+  
+    // 3. Initialize the x-coordinates in leftPixels
+    //    to some really large value and the x-coordinates
+    //    in rightPixels to some really small value.
+    
+    // initializes left and right pixels row to contain the smallest and largest
+    // x values of the pixels in that row respectively
+    
+    for( int i=0; i<ROWS; ++i )
+    {
+       leftPixels[i].x  = +numeric_limits<int>::max();
+       rightPixels[i].x = -numeric_limits<int>::max();
+    }
+
+    // 4. Loop through all edges of the polygon and use
+    //    linear interpolation to find the x-coordinate for
+    //    each row it occupies. Update the corresponding
+    // values in rightPixels and leftPixels. 
+
+    ivec2 delta;
+    
+    ivec2 a;
+    ivec2 b;
+    int V = vertexPixels.size();
+    // vector< vector<ivec2> > edges(V);
+    
+    
+    for( int i=0; i<V; ++i )
+    {
+        int j = (i+1)%V; // The next vertex
+        a = vertexPixels[i];
+        b = vertexPixels[j];
+
+        delta.x = glm::abs( a.x - b.x );
+        delta.y = glm::abs( a.y - b.y );
+        int pixels = glm::max( delta.x, delta.y ) + 1;
+        
+        // edges[i].resize(pixels);
+        
+        vector<ivec2> line( pixels );
+        Interpolate( a, b, line );
+
+
+        for(int p = 0; p < pixels;p++){
+            for(int j =0 ; j < ROWS ; j++){
+                if(line[p].x < leftPixels[j].x && line[p].y == j + smallest){
+                   leftPixels[j].x = line[p].x;
+                   
+
+                   leftPixels[j].y = smallest + j;
+                } 
+                
+
+                if(line[p].x > rightPixels[j].x && line[p].y == j + smallest){
+                    rightPixels[j].x = line[p].x;
+                    
+
+                    rightPixels[j].y = smallest + j;
+                } 
+
+
+            }
+
+        }
+        // edges[i] = line;    
+    } 
+
+    
+    // for(int i = 0; i < edges.size();i ++){
+    //     for(int j =0 ; j < ROWS; j++){
+    //         if(edges[i][j].x < leftPixels[j].x && edges[i][j].y == j + smallest){
+    //            leftPixels[j].x = edges[i][j].x;
+               
+
+    //            leftPixels[j].y = smallest + j;
+    //         } 
+            
+
+    //         if(edges[i][j].x > rightPixels[j].x && edges[i][j].y == j + smallest){
+    //             rightPixels[j].x = edges[i][j].x;
+                
+
+    //             rightPixels[j].y = smallest + j;
+    //         } 
+    //     }
+    // }
+    // cout << edges.size() <<endl;
+
+
+}
+void testComputePolygonRows(){
+    vector<ivec2> vertexPixels(3);
+    vertexPixels[0] = ivec2(10, 5);
+    vertexPixels[1] = ivec2( 5,10);
+    vertexPixels[2] = ivec2(15,15);
+    vector<ivec2> leftPixels;
+    vector<ivec2> rightPixels;
+    ComputePolygonRows( vertexPixels, leftPixels, rightPixels );
+    // cout << leftPixels.size() <<endl;
+    for( int row=0; row<leftPixels.size(); ++row )
+    {
+        
+        cout << "Start: ("
+            << leftPixels[row].x << ","
+            << leftPixels[row].y << "). "
+            << "End: ("
+            << rightPixels[row].x << ","
+            << rightPixels[row].y << "). " << endl;
+    }
+}
+
+void Interpolate( vec2 a, vec2 b, vector<ivec2>& result )
 {
     int N = result.size();
     float temp = float(max(N-1,1));
@@ -133,10 +277,13 @@ void Interpolate( ivec2 a, ivec2 b, vector<ivec2>& result )
     vec2 current( a );
     for( int i=0; i<N; ++i )
     {
-       result[i].x = round(current.x);
-       result[i].y = round(current.y);
+       result[i].x = current.x;
+       result[i].y = current.y;
        current.x += step.x;
+
        current.y += step.y;
+       // cout << result[i].x << endl;
+       // cout << result[i].y << endl;
     }
 }
 void DrawLineSDL( screen* screen, ivec2 a, ivec2 b, vec3 color ){
