@@ -283,7 +283,7 @@ void DrawPolygonRows( const vector<ivec2>& leftPixels,
         int stop =  rightPixels[i].x;
 
 
-        for(int j = start; j < stop; j++){
+        for(int j = start; j <= stop; j++){
             PutPixelSDL( screen, j , leftPixels[i].y, color );
         }
     }
