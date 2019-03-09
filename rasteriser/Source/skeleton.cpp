@@ -40,7 +40,9 @@ mat4 setRotationMat(mat4 R,float yaw);
 void DrawPolygonEdges( const vector<vec4>& vertices, screen* screen );
 void ComputePolygonRows(const vector<ivec2>& vertexPixels, vector<ivec2>& leftPixels, vector<ivec2>& rightPixels );
 void testComputePolygonRows();
+void DrawPolygonRows( const vector<ivec2>& leftPixels, const vector<ivec2>& rightPixels,vec3 color );
 
+void DrawPolygon( const vector<vec4>& vertice,screen* screen,vec3 color );
 
 int main( int argc, char* argv[] )
 {
@@ -75,15 +77,17 @@ void Draw(screen* screen)
     
     // vector<ivec2> line( pixels );
     // Interpolate( a, b, line );
+    vec3 currentColour;
     
     for(int i=0; i<triangles.size(); i++)
     {
         triangleVerts[0] = triangles[i].v0;
         triangleVerts[1] = triangles[i].v1;
         triangleVerts[2] = triangles[i].v2;
+        currentColour = triangles[i].color;
 
-        DrawPolygonEdges(triangleVerts,screen);
-       
+        // DrawPolygonEdges(triangleVerts,screen);
+       DrawPolygon(triangleVerts,screen,currentColour);
         
     }
 }
@@ -301,6 +305,29 @@ void DrawLineSDL( screen* screen, ivec2 a, ivec2 b, vec3 color ){
     
     
 
+}
+void DrawPolygonRows( const vector<ivec2>& leftPixels,
+                  const vector<ivec2>& rightPixels, vec3 color,screen* screen ){
+    for(int i = 0; i < leftPixels.size(); i ++){
+        int start = leftPixels[i].x;
+        int stop =  rightPixels[i].x;
+        for(int j = start; j <= stop; j++){
+            PutPixelSDL( screen, start + j , i, color );
+        }
+    }
+
+}
+
+void DrawPolygon( const vector<vec4>& vertices,screen* screen,vec3 color)
+{
+       int V = vertices.size();
+       vector<ivec2> vertexPixels( V );
+       for( int i=0; i<V; ++i )
+           VertexShader( vertices[i], vertexPixels[i] );
+       vector<ivec2> leftPixels;
+       vector<ivec2> rightPixels;
+       ComputePolygonRows( vertexPixels, leftPixels, rightPixels );
+       DrawPolygonRows( leftPixels, rightPixels,color,screen);
 }
 mat4 setRotationMat(mat4 R, float yaw){
     //First Column
