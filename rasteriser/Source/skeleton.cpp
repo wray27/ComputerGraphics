@@ -107,7 +107,6 @@ void DrawPolygonEdges( const vector<vec4>& vertices, screen* screen ){
         
         DrawLineSDL( screen, projectedVertices[i], projectedVertices[j], color );
     } 
-
 }
 
 void VertexShader( const vec4& v, ivec2& p ){
@@ -123,8 +122,6 @@ void VertexShader( const vec4& v, ivec2& p ){
 
     p.x = (f * (temp.x/temp.z)) + (SCREEN_WIDTH /2);
     p.y = (f * (temp.y/temp.z)) + (SCREEN_HEIGHT /2);
-
-
 }
 void ComputePolygonRows(
        const vector<ivec2>& vertexPixels,
@@ -132,8 +129,6 @@ void ComputePolygonRows(
        vector<ivec2>& rightPixels )
 {
 
-
-    
     // 1. Find max and min y-value of the polygon
     //    and compute the number of rows it occupies.
     int largest =  -numeric_limits<int>::max();
@@ -167,8 +162,8 @@ void ComputePolygonRows(
     
     for( int i=0; i<ROWS; ++i )
     {
-       leftPixels[i].x  = +numeric_limits<int>::max();
-       rightPixels[i].x = -numeric_limits<int>::max();
+        leftPixels[i].x  = +numeric_limits<int>::max();
+        rightPixels[i].x = -numeric_limits<int>::max();
     }
 
     // 4. Loop through all edges of the polygon and use
@@ -223,30 +218,8 @@ void ComputePolygonRows(
         }
         // edges[i] = line;    
     } 
-
-    
-    // for(int i = 0; i < edges.size();i ++){
-    //     for(int j =0 ; j < ROWS; j++){
-    //         if(edges[i][j].x < leftPixels[j].x && edges[i][j].y == j + smallest){
-    //            leftPixels[j].x = edges[i][j].x;
-               
-
-    //            leftPixels[j].y = smallest + j;
-    //         } 
-            
-
-    //         if(edges[i][j].x > rightPixels[j].x && edges[i][j].y == j + smallest){
-    //             rightPixels[j].x = edges[i][j].x;
-                
-
-    //             rightPixels[j].y = smallest + j;
-    //         } 
-    //     }
-    // }
-    // cout << edges.size() <<endl;
-
-
-}
+}   
+   
 void testComputePolygonRows(){
     vector<ivec2> vertexPixels(3);
     vertexPixels[0] = ivec2(10, 5);
@@ -302,17 +275,16 @@ void DrawLineSDL( screen* screen, ivec2 a, ivec2 b, vec3 color ){
         PutPixelSDL( screen, line[i].x, line[i].y, color );
 
     }
-    
-    
-
 }
 void DrawPolygonRows( const vector<ivec2>& leftPixels,
                   const vector<ivec2>& rightPixels, vec3 color,screen* screen ){
     for(int i = 0; i < leftPixels.size(); i ++){
         int start = leftPixels[i].x;
         int stop =  rightPixels[i].x;
-        for(int j = start; j <= stop; j++){
-            PutPixelSDL( screen, start + j , i, color );
+
+
+        for(int j = start; j < stop; j++){
+            PutPixelSDL( screen, j , leftPixels[i].y, color );
         }
     }
 
