@@ -24,7 +24,16 @@ SDL_Event event;
 
 vector<Triangle> triangles;
 vec4 cameraPos( 0, 0, -3.001,1 );
+float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
 float yaw = 0;
+struct Pixel
+   {
+       int x;
+       int y;
+       float zinv;
+};
+
+
 // focal length of the camera
 float f = SCREEN_WIDTH;
 
@@ -35,6 +44,7 @@ bool Update();
 void Draw(screen* screen);
 void VertexShader( const vec4& v, ivec2& p );
 void Interpolate( vec2 a, vec2 b, vector<ivec2>& result );
+void Interpolate( Pixel a, Pixel b, vector<Pixel>& result );
 void DrawLineSDL( screen* screen, ivec2 a, ivec2 b, vec3 color );
 mat4 setRotationMat(mat4 R,float yaw);
 void DrawPolygonEdges( const vector<vec4>& vertices, screen* screen );
