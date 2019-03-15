@@ -20,17 +20,29 @@ SDL_Event event;
 #define SCREEN_WIDTH 256
 #define SCREEN_HEIGHT 256
 #define FULLSCREEN_MODE false
-#define PI 3.14159255358979323546
+#define PI 3.14159265358979323546
 
 vector<Triangle> triangles;
 vec4 cameraPos( 0, 0, -3.001,1 );
 float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
 float yaw = 0;
+vec4 lightPos(0,-0.5,-0.7,1);
+vec3 lightPower = 14.0f*vec3( 1, 1, 1 );
+vec3 indirectLightPowerPerArea = 0.5f*vec3( 1, 1, 1 );
 struct Pixel
 {
        int x;
        int y;
        float zinv;
+       vec3 illumination;
+       vvec4 pos3d;
+};
+
+struct Vertex
+{
+    vec4 position;
+    vec4 normal;
+    vec3 reflectance;
 };
 
 
@@ -43,7 +55,7 @@ float f = SCREEN_WIDTH;
 bool Update();
 void Draw(screen* screen);
 void VertexShader( const vec4& v, ivec2& p );
-void VertexShader( const vec4& v, Pixel& p );
+void VertexShader( const Vertex& v, Pixel& p);
 void Interpolate( vec2 a, vec2 b, vector<ivec2>& result );
 void Interpolate( Pixel a, Pixel b, vector<Pixel>& result );
 void DrawLineSDL( screen* screen, ivec2 a, ivec2 b, vec3 color );
@@ -54,10 +66,12 @@ void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPi
 void testComputePolygonRows();
 void DrawPolygonRows( const vector<ivec2>& leftPixels, const vector<ivec2>& rightPixels,vec3 color );
 void DrawPolygonRows( const vector<Pixel>& leftPixels,const vector<Pixel>& rightPixels, vec3 color,screen* screen );
-void DrawPolygon( const vector<vec4>& vertice,screen* screen,vec3 color );
+void PixelShader( const Pixel& p,screen* screen);
+vec3 light( const Vertex& v );
+void DrawPolygon( const vector<Vertex>& vertices,screen* screen,vec3 color );
 
-int main( int argc, char* argv[] )
-{
+
+int main( int argc, char* argv[] ){
   // testComputePolygonRows();
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
   LoadTestModel(triangles);
@@ -73,39 +87,72 @@ int main( int argc, char* argv[] )
   KillSDL(screen);
   return 0;
 }
-
 /*Place your drawing here*/
-void Draw(screen* screen)
-{
+void Draw(screen* screen){
     /* Clear buffer */
     memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
-
+    
+    
     // clears the depth buffer
     for( int y=0; y<SCREEN_HEIGHT; ++y )
         for( int x=0; x<SCREEN_WIDTH; ++x )
             depthBuffer[y][x] = 0;
    
     vec3 colour(1.0,1.0,1.0);
-    vector<vec4> triangleVerts(3);
-   
+    vector<Vertex> triangleVerts(3);
 
+
+   
+    vec3 currentColor;
     // ivec2 delta = glm::abs( a - b );
     // int pixels = glm::max( delta.x, delta.y ) + 1;
     
     // vector<ivec2> line( pixels );
     // Interpolate( a, b, line );
-    vec3 currentColour;
     
+    vec3 power;
+    vec3 reflectance;
     for(int i=0; i<triangles.size(); i++)
-    {
-        triangleVerts[0] = triangles[i].v0;
-        triangleVerts[1] = triangles[i].v1;
-        triangleVerts[2] = triangles[i].v2;
-        currentColour = triangles[i].color;
+    {  
+        currentColor = triangles[i].color;
+        
+        triangleVerts[0].position = triangles[i].v0;
+        triangleVerts[1].position = triangles[i].v1;
+        triangleVerts[2].position = triangles[i].v2;
+
+        // power = light(triangleVerts[0]);
+        // reflectance = (power + indirectLightPowerPerArea) * currentColor;
+        triangleVerts[0].reflectance = currentColor ;
+        triangleVerts[0].normal = triangles[i].normal;
+
+        
+        // power = light(triangleVerts[1]);
+        // reflectance = (power + indirectLightPowerPerArea) * currentColor;
+        triangleVerts[1].reflectance = currentColor ;
+        triangleVerts[1].normal = triangles[i].normal;
+
+
+        // power = light(triangleVerts[2]);
+        // reflectance = (power + indirectLightPowerPerArea) * currentColor;
+        triangleVerts[2].reflectance = currentColor;
+        triangleVerts[2].normal = triangles[i].normal;
+
+        
 
         // DrawPolygonEdges(triangleVerts,screen);
-       DrawPolygon(triangleVerts,screen,currentColour);
+        DrawPolygon(triangleVerts,screen,currentColor);
         
+    }
+}
+void PixelShader( const Pixel& p,screen* screen){
+    int x = p.x;
+    int y = p.y;
+    // cout << "colour val  = " << p.illumination.x;
+    if( p.zinv > depthBuffer[y][x] )
+    {
+
+        depthBuffer[y][x] = p.zinv;
+        PutPixelSDL( screen, x, y, p.illumination);
     }
 }
 void DrawPolygonEdges( const vector<vec4>& vertices, screen* screen ){
@@ -125,6 +172,31 @@ void DrawPolygonEdges( const vector<vec4>& vertices, screen* screen ){
         DrawLineSDL( screen, projectedVertices[i], projectedVertices[j], color );
     } 
 }
+vec3 light( const Vertex& v ){
+    vec3 colour = vec3(0.0f,0.0f,0.0f);
+
+    //calculatiing the distance from light source - r
+    float distance = glm::distance(lightPos,v.position);
+    
+    // unit vector describing the direction from the surface point to the light source
+    vec4 _r = glm::normalize(lightPos - v.position);
+    // vec3 r = glm::normalize(vec3(_r.x,_r.y,_r.z));
+
+    //normal pointing out of the surface as a unit vector
+    vec4 _n = glm::normalize(v.normal);
+    // vec3 n = glm::normalize(vec3(triangles[i.triangleIndex].normal.x,triangles[i.triangleIndex].normal.y,triangles[i.triangleIndex].normal.x));
+
+
+    // Adds light to the scene withno colour
+    colour = (vec3)( lightPower * max(glm::dot(_r,_n),0.0f) ) / (float)(4.0f*PI* pow((double)distance,2));
+    // if ( distance <=  0 ) cout <<  "what is going on";
+    // cout << " colour : " << colour.y;
+    // adds colour tot the scene
+    // colour = colour * triangles[i.triangleIndex].color;
+
+
+    return colour;
+}
 void VertexShader( const vec4& v, ivec2& p ){
     vec4 temp;
     glm::mat4 R;
@@ -139,13 +211,20 @@ void VertexShader( const vec4& v, ivec2& p ){
     p.x = (f * (temp.x/temp.z)) + (SCREEN_WIDTH /2);
     p.y = (f * (temp.y/temp.z)) + (SCREEN_HEIGHT /2);
 }
-void VertexShader( const vec4& v, Pixel& p ){
+void VertexShader( const Vertex& v, Pixel& p){
     vec4 temp;
     glm::mat4 R;
+    
+
+    vec3 power = light(v);
+    p.illumination = (power + indirectLightPowerPerArea) * v.reflectance;
+    // cout << "colour val  = " << p.illumination.x;
+    // p.illumination = vec3(1.0f,1.0f,1.0f);
+   
 
 
     R = setRotationMat(R,yaw);
-    temp = R*v;
+    temp = R*v.position;
 
     // puts the coordinates of the vertex in the same system as the camera
     temp.x = temp.x - cameraPos.x;
@@ -240,12 +319,14 @@ void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPi
                    leftPixels[j].x = line[p].x;
                    leftPixels[j].zinv = line[p].zinv;
                    leftPixels[j].y = smallest + j;
+                   leftPixels[j].illumination = line[p].illumination;
                 } 
 
                 if(line[p].x > rightPixels[j].x && line[p].y == j + smallest){
                     rightPixels[j].x = line[p].x;
                     rightPixels[j].zinv = line[p].zinv;
                     rightPixels[j].y = smallest + j;
+                    rightPixels[j].illumination = line[p].illumination;
                 } 
 
 
@@ -372,21 +453,40 @@ void Interpolate( Pixel a, Pixel b, vector<Pixel>& result ){
     float temp = float(max(N-1,1));
     
     vec3 step;
+    vec3 illumStep;
+
+
 
     step.x = (b.x - a.x) / temp;
     step.y = (b.y - a.y) / temp;
     step.z = (b.zinv - a.zinv) / temp;
 
+    illumStep.x = (b.illumination.x - a.illumination.x) / temp;
+    illumStep.y = (b.illumination.y - a.illumination.y) / temp;
+    illumStep.z = (b.illumination.z - a.illumination.z) / temp;
+
+
     vec3 current( a.x,a.y,a.zinv );
+    vec3 currentIllumination(a.illumination.x,a.illumination.y,a.illumination.z);
     for( int i=0; i<N; ++i )
     {
        result[i].x = current.x;
        result[i].y = current.y;
        result[i].zinv = current.z;
+
+       result[i].illumination.x = currentIllumination.x;
+       result[i].illumination.y = currentIllumination.y;
+       result[i].illumination.z = currentIllumination.z;
+
+
        
        current.x += step.x;
        current.y += step.y;
        current.z += step.z;
+
+       currentIllumination.x += illumStep.x;
+       currentIllumination.y += illumStep.y;
+       currentIllumination.z += illumStep.z;
        // cout << result[i].x << endl;
        // cout << result[i].y << endl;
     }
@@ -441,9 +541,6 @@ void DrawPolygonRows( const vector<Pixel>& leftPixels,const vector<Pixel>& right
     int start;
     int stop;
   
-
-   
-
     for(int i = 0; i < leftPixels.size(); i ++){
         start = leftPixels[i].x;
         stop = rightPixels[i].x;
@@ -453,21 +550,22 @@ void DrawPolygonRows( const vector<Pixel>& leftPixels,const vector<Pixel>& right
             // exits early if pixels are no longer on the screen
             if( currrentRow[j].x < 0 || currrentRow[j].x >= SCREEN_WIDTH||leftPixels[i].y < 0 || leftPixels[i].y >=SCREEN_HEIGHT) continue;
             // A new pixel is drawn if the inverse of the z coordinate is larger than the value in the depth buffer
-            if( currrentRow[j].zinv >= depthBuffer[currrentRow[j].x][leftPixels[i].y] ){
+            // if( currrentRow[j].zinv >= depthBuffer[currrentRow[j].x][leftPixels[i].y] ){
                 
-                PutPixelSDL( screen, currrentRow[j].x,currrentRow[j].y, color );
-                // stores new pixel that is drawn in depth buffer
-                depthBuffer[currrentRow[j].x][currrentRow[j].y] = currrentRow[j].zinv;
-            }        
+            //     PutPixelSDL( screen, currrentRow[j].x,currrentRow[j].y, color );
+            //     // stores new pixel that is drawn in depth buffer
+            //     depthBuffer[currrentRow[j].x][currrentRow[j].y] = currrentRow[j].zinv;
+
+            // }  
+            PixelShader(currrentRow[j],screen);      
         }
     }
-  
 }
-void DrawPolygon( const vector<vec4>& vertices,screen* screen,vec3 color){
+void DrawPolygon( const vector<Vertex>& vertices,screen* screen,vec3 color){
        int V = vertices.size();
        vector<Pixel> vertexPixels( V );
        for( int i=0; i<V; ++i )
-           VertexShader( vertices[i], vertexPixels[i] );
+           VertexShader( vertices[i], vertexPixels[i]);
       
        vector<Pixel> leftPixels;
        vector<Pixel> rightPixels;

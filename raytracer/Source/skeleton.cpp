@@ -340,7 +340,7 @@ vec3 light( const Intersection& i ){
 
 
 	// Adds light to the scene withno colour
-	colour = (lightColor * max(glm::dot(_r,_n),0.0f)) / (float)(4*PI*pow(distance,2));
+	colour = (lightColor * max(glm::dot(_r,_n),0.0f)) / (float)(4*PI*pow((double)distance,2));
 	// adds colour tot the scene
 	// colour = colour * triangles[i.triangleIndex].color;
 
