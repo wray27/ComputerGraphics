@@ -467,9 +467,11 @@ void Interpolate( Pixel a, Pixel b, vector<Pixel>& result ){
     step.y = (b.y - a.y) / temp;
     step.z = (b.zinv - a.zinv) / temp;
 
-    posStep.x = (b.pos3d.x - a.pos3d.x) / temp;
-    posStep.y = (b.pos3d.y - a.pos3d.y) / temp;
-    posStep.z = (b.pos3d.z - a.pos3d.z) / temp;
+
+    // perspective projection by dividing by z 
+    posStep.x = ( (b.pos3d.x/b.pos3d.z) - (a.pos3d.x/a.pos3d.z) ) / temp;
+    posStep.y = ( (b.pos3d.y/b.pos3d.z) - (a.pos3d.y/a.pos3d.z) ) / temp;
+    posStep.z = ( (b.pos3d.z/b.pos3d.z) - (a.pos3d.z/a.pos3d.z) ) / temp;
 
 
     vec3 current( a.x,a.y,a.zinv );
@@ -497,6 +499,9 @@ void Interpolate( Pixel a, Pixel b, vector<Pixel>& result ){
        // cout << result[i].x << endl;
        // cout << result[i].y << endl;
     }
+    result[N-1].pos3d.x /= result[N-1].pos3d.z;
+    result[N-1].pos3d.y /= result[N-1].pos3d.z;
+    result[N-1].pos3d.z /= result[N-1].pos3d.z;
 }
 void Interpolate( vec2 a, vec2 b, vector<ivec2>& result ){
     int N = result.size();
