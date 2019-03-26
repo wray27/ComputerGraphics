@@ -8,6 +8,7 @@
 #include "ObjLoader.h"
 
 
+
 using namespace std;
 using glm::vec3;
 using glm::mat3;
@@ -27,11 +28,16 @@ struct Intersection
 	int triangleIndex;
 };
 
+struct Light
+{
+	vec4 pos;
+	vec3 col;
+};
+
 float focalLength = 256;
 vec4 cameraPos(0,0,-3,1.0);
 float yaw = 0;
-vec4 lightPos = vec4( 0, -0.5, -0.7, 1.0 );
-
+//vec4 lightPos = vec4( 0, -0.5, -0.7, 1.0 );
 
 
 
@@ -41,13 +47,19 @@ vec4 lightPos = vec4( 0, -0.5, -0.7, 1.0 );
 mat4 setRotationMat(mat4 R,float yaw);
 bool Update();
 vec3 DirectLight( const Intersection& i );
-vec3 IndirectLight( const Intersection& i );
-vec3 light( const Intersection& i );
+vec3 IndirectLight( const Intersection& i);
+vec3 light( const Intersection& i);
 void Draw(screen* screen);
 bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles, Intersection& closestIntersection );
+void setupLighting(vector<Light> &lights);
+vec3 reflection(const Intersection &i, vec3 colour);
 //void LoadTestModel( std::vector<Triangle>&triangles );
 
 vector<Triangle> triangles;
+vector<Light> lights;
+//initialise a light here
+
+
 /*struct Triangle
    {
        vec4 v0;
@@ -55,26 +67,28 @@ vector<Triangle> triangles;
        vec4 v2;
        vec4 normal;
        vec3 color;
+       //bool is_reflective
 };*/
 
-//void ray_direction(int x, int y);
+
 
 int main( int argc, char* argv[] )
 {
-	int objectCount= 0;
-
+	//int objectCount= 0;
+	setupLighting(lights);
 	screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
 	LoadTestModel(triangles);
-	if(loadOBJ("./Objects/bunny.obj",triangles)) {
-		cout << "Object " << objectCount << " loaded successfully!\n";
-		cout << triangles[0].v1.x << "," << triangles[0].v1.y << "," << triangles[0].v1.z << endl;
-		objectCount ++;
-	}
+	// if(loadOBJ("./Objects/bunny.obj",triangles)) {
+	// 	cout << "Object " << objectCount << " loaded successfully!\n";
+	// 	cout << triangles[0].v1.x << "," << triangles[0].v1.y << "," << triangles[0].v1.z << endl;
+	// 	objectCount ++;
+	// }
 
-	while ( Update())
+	while (Update())
 	{
 		Draw(screen);
 		SDL_Renderframe(screen);
+
 	}
 
 	SDL_SaveImage( screen, "screenshot.bmp" );
@@ -83,30 +97,67 @@ int main( int argc, char* argv[] )
 	return 0;
 }
 
+void setupLighting(vector<Light> &lights) {
+	// function to add more lights if needed
+	 lights.resize(1);
+	//original light
+	 lights[0].pos = vec4( 0, -0.5, -0.7, 1.0 );
+	 lights[0].col = 14.f * vec3( 1.0f, 1.0f, 1.0f ); 
+}
+
+
+
 /*Place your drawing here*/
-void Draw(screen* screen)
-{
+void Draw(screen* screen) {
 
 	memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
 	Intersection closestIntersection;
+	Intersection closestIntersection_two;
+
 
 	for(int y = 0; y < SCREEN_HEIGHT; y++) {
-
 		for(int x = 0; x < SCREEN_WIDTH; x++) {
-			vec4 d = vec4(x - (SCREEN_WIDTH / 2), y - (SCREEN_HEIGHT / 2), focalLength, 1.0);
-			bool b = ClosestIntersection(cameraPos,d, triangles, closestIntersection);
+			vec3 colour = vec3(0.0,0.0,0.0);
+			 for (float i = -0.5; i <= 0.5; i+=0.25f) {
+				 for (float j = -0.5; j <= 0.5; j +=0.25f) {
+					//vec4 d = vec4(x - (SCREEN_WIDTH / 2), y - (SCREEN_HEIGHT / 2), focalLength, 1.0);
+					vec4 d = vec4(x - (SCREEN_WIDTH / 2) + i*128/22.5f, y - (SCREEN_HEIGHT / 2) + j*128/22.5f, focalLength, 1.0);
+					bool b = ClosestIntersection(cameraPos - vec4(i, j, 0, 0)/22.5f, d, triangles, closestIntersection);			
+					if(b) {
+						 //int i = closestIntersection.triangleIndex;
+						 //vec3 colour = triangles[i].color;
+						colour += IndirectLight(closestIntersection);
+					}
+
+
+
+					if(triangles[closestIntersection.triangleIndex].is_reflective) {
+						colour = vec3(0.0,0.0,0.0);
+						//colour = vec3(triangles[closestIntersection.triangleIndex].normal);
+
+						vec4 dir = closestIntersection.position - cameraPos;
+						
+						vec4 N = triangles[closestIntersection.triangleIndex].normal;
+						vec4 start = closestIntersection.position + (0.01f * N);
+						float dot_prod = -2 * dot(dir,N);
+						vec4 reflected_ray = dir + (dot_prod * N);
+
+
+						if(ClosestIntersection(start,reflected_ray, triangles, closestIntersection_two)){
+							colour = triangles[closestIntersection_two.triangleIndex].color * 25.0f;
+						}						
+
+					}
+				 }
+			 }
+
+			PutPixelSDL(screen, x, y, colour /25.0f);
 			
-			if(b) {
-				 int i = closestIntersection.triangleIndex;
-				 vec3 colour = triangles[i].color;
-				//vec3 colour = IndirectLight(closestIntersection);
-				PutPixelSDL(screen, x, y, colour);
-			} else {
-				PutPixelSDL(screen, x, y, vec3(0.0,0.0,0.0));
-			}
 		}
 	}
 }
+
+
 mat4 setRotationMat(mat4 R, float yaw){
 	//First Column
 	// R = mat4(right, up, forward, -from)
@@ -162,6 +213,8 @@ mat4 setRotationMat(mat4 R, float yaw){
 /*Place updates of parameters here*/
 bool Update()
 {
+	//vec4 lightPos = lights.at(0).pos;
+
 	static int t = SDL_GetTicks();
 	/* Compute frame time */
 	int t2 = SDL_GetTicks();
@@ -175,14 +228,10 @@ bool Update()
 	vec4 right(   R[0][0], R[0][1], R[0][2], 1 );
    	vec4 down(    R[1][0], R[1][1], R[1][2], 1 );
 	
-	
-	// vec4 left;
-	// vec4 right;
-	// vec4 down;
 
 
 	// if( keystate[SDLK_w] )
- //       lightPos += forward;
+    //  lightPos += forward;
 	
 	// if( keystate[SDLK_s] )
 	// 	lightPos -= forward;	
@@ -200,11 +249,6 @@ bool Update()
 	// 	lightPos -= down;
 					
 
-
-	
-
-
-
 	SDL_Event e;
 	while(SDL_PollEvent(&e))
 	{
@@ -219,32 +263,32 @@ bool Update()
 				{	
 					case SDLK_w:
 					{
-						lightPos += forward;
+						lights.at(0).pos += forward;
 						break;
 					}
 					case SDLK_s:
 					{
-						lightPos -= forward;
+						lights.at(0).pos -= forward;
 						break;
 					}
 					case SDLK_a:
 					{
-						lightPos += right;
+						lights.at(0).pos += right;
 						break;
 					}
 					case SDLK_d:
 					{
-						lightPos -= right;
+						lights.at(0).pos -= right;
 						break;
 					}
 					case SDLK_e:
 					{
-						lightPos -= down;
+						lights.at(0).pos -= down;
 						break;
 					}
 					case SDLK_q:
 					{
-						lightPos += down;
+						lights.at(0).pos += down;
 						break;
 					}
 					case SDLK_UP:
@@ -305,59 +349,97 @@ bool Update()
 
 }
 
+// added soft shadows
+vec3 light( const Intersection& i){
 
-vec3 light( const Intersection& i ){
 	vec3 colour = vec3(0.0f,0.0f,0.0f);
+	vec4 lightPos1 = lights.at(0).pos;
+	vec3 lightColor = lights.at(0).col;
 
+	for(float k = -0.1f; k <= 0.1f; k+= 0.05f) {
+		for(float j = -0.1f; j <= 0.1f; j+= 0.05f){
+			vec4 lightPos = lightPos1 + vec4(k, 0, j, 0);
 
+			//vec4 lightPos = lights.at(j).pos;
+			
+			// calculates whether an area has a shadow
+			Intersection shadowI;
+			vec4 dir = lightPos - i.position;
+			ClosestIntersection(i.position+1e-3f*dir,dir,triangles,shadowI);
+			
+			//if the distance is greater than 1 then there is not shadow
+			if (shadowI.distance >= 1) {
+				//color vector describes the power P
+				//vec3 lightColor = 14.f * vec3( 1.0f, 1.0f, 1.0f );
+				
+				//calculatiing the distance from light source - r
+				float distance = glm::distance(lightPos,i.position);
+				
+				// unit vector describing the direction from the surface point to the light source
+				vec4 _r = glm::normalize(lightPos - i.position);
+				// vec3 r = glm::normalize(vec3(_r.x,_r.y,_r.z));
 
-	// calculates whether an area has a shadow
-	Intersection shadowI;
-	vec4 dir = lightPos - i.position;
-	ClosestIntersection(i.position+1e-3f*dir,dir,triangles,shadowI);
-	
-	if (shadowI.distance < 1){
-		colour =  vec3(0,0,0);
-		return colour;
+				//normal pointing out of the surface as a unit vector
+				vec4 _n = glm::normalize(triangles[i.triangleIndex].normal);
+				// vec3 n = glm::normalize(vec3(triangles[i.triangleIndex].normal.x,triangles[i.triangleIndex].normal.y,triangles[i.triangleIndex].normal.x));
 
+				// Adds light to the scene with no colour
+				colour += (lightColor * max(glm::dot(_r,_n),0.0f)) / (float)(4*PI*pow(distance,2));
+				// adds colour tot the scene
+				// colour = colour * triangles[i.triangleIndex].color;
+			}
+
+		}
 	}
 
+
+	colour /= 40.0f;
+
+	// vec4 lightPos = lights.at(0).pos;
+	// vec3 lightColor = lights.at(0).col;
+
+
+	// // calculates whether an area has a shadow
+	// Intersection shadowI;
+	// vec4 dir = lightPos - i.position;
+	// ClosestIntersection(i.position+1e-3f*dir,dir,triangles,shadowI);
 	
+	// //avg out shadow intensity?
+	// if (shadowI.distance < 1){
+	// 	colour =  vec3(0.0f,0.0f,0.0f);
+	// 	return colour;
+	// }
+
+	// //color vector describes the power P
+	// //vec3 lightColor = 14.f * vec3( 1.0f, 1.0f, 1.0f );
 	
-	//color vector describes the power P
-	vec3 lightColor = 14.f * vec3( 1.0f, 1.0f, 1.0f );
+	// //calculatiing the distance from light source - r
+	// float distance = glm::distance(lightPos,i.position);
 	
-	//calculatiing the distance from light source - r
-	float distance = glm::distance(lightPos,i.position);
-	
-	// unit vector describing the direction from the surface point to the light source
-	vec4 _r = glm::normalize(lightPos - i.position);
-	// vec3 r = glm::normalize(vec3(_r.x,_r.y,_r.z));
+	// // unit vector describing the direction from the surface point to the light source
+	// vec4 _r = glm::normalize(lightPos - i.position);
+	// // vec3 r = glm::normalize(vec3(_r.x,_r.y,_r.z));
 
-	//normal pointing out of the surface as a unit vector
-	vec4 _n = glm::normalize(triangles[i.triangleIndex].normal);
-	// vec3 n = glm::normalize(vec3(triangles[i.triangleIndex].normal.x,triangles[i.triangleIndex].normal.y,triangles[i.triangleIndex].normal.x));
+	// //normal pointing out of the surface as a unit vector
+	// vec4 _n = glm::normalize(triangles[i.triangleIndex].normal);
+	// // vec3 n = glm::normalize(vec3(triangles[i.triangleIndex].normal.x,triangles[i.triangleIndex].normal.y,triangles[i.triangleIndex].normal.x));
 
 
-	// Adds light to the scene withno colour
-	colour = (lightColor * max(glm::dot(_r,_n),0.0f)) / (float)(4*PI*pow((double)distance,2));
-	// adds colour tot the scene
-	// colour = colour * triangles[i.triangleIndex].color;
-
-
+	// // Adds light to the scene with no colour
+	// colour = (lightColor * max(glm::dot(_r,_n),0.0f)) / (float)(4*PI*pow(distance,2));
+	// // adds colour tot the scene
+	// // colour = colour * triangles[i.triangleIndex].color;
 	return colour;
-
 }
 
-vec3 DirectLight(const Intersection& i ){
 
+vec3 DirectLight(const Intersection& i ){
 	vec3 ret = light(i) * triangles[i.triangleIndex].color;
 	return ret;
 }
 
 
 vec3 IndirectLight(const Intersection& i) {
-
 	vec3 colour;
 	vec3 indirectLight = 0.5f*vec3(1.0f,1.0f,1.0f);
 	// float distance = glm::distance(lightPos,i.position);
@@ -369,8 +451,35 @@ vec3 IndirectLight(const Intersection& i) {
 	//colour = triangles[i.triangleIndex].color * total;
 
 	return colour;
+}
+
+vec3 reflection(const Intersection &i, vec3 colour){
+
+	vec4 lightPos = lights.at(0).pos;
+	vec4 dir = lightPos - i.position;
+
+	Intersection ref_i;
+
+	vec4 N = triangles[i.triangleIndex].normal;
+
+
+	float dot_prod = -2 * dot(dir,N);
+	vec4 reflected_ray = dir + (dot_prod * N);
+
+
+	bool ci = ClosestIntersection(i.position, reflected_ray, triangles, ref_i);
+	if(ci) {
+		int ii = ref_i.triangleIndex;
+		colour = triangles[ii].color;
+	}
+	
+
+
+	return colour;
 
 }
+
+
 
 
 
@@ -402,7 +511,7 @@ bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles
 	 mat3 A1(b, e1, e2); //t
 	 float t = glm::determinant(A1) / glm::determinant(A);
 
-	 if(t >= 0) {
+	 if(t > 0.001) {
 
 	  mat3 A2(-d,b,e2); // u 
 	  float u = glm::determinant(A2) / glm::determinant(A);

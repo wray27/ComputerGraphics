@@ -14,6 +14,7 @@ using glm::vec4;
 
 
 
+// not 100% complete, need to ensure vt and vn's are pushed onto the Triangles vector
 
 
 // v is a vertex
@@ -21,32 +22,60 @@ using glm::vec4;
 // vn is the normal of one vertex
 // f is a face
 
-Triangle scale(Triangle tri){
+std::vector<glm::vec4> scale(std::vector<glm::vec4>verticies) {
 
+	float max_x = -10.0;
+	float max_y = -10.0;
+	float max_z = -10.0;
 
-	float L = 555;
-	tri.v0 *= 2/L;
-	tri.v1 *= 2/L;
-	tri.v2 *= 2/L;
+	float min_x = 10.0;
+	float min_y = 10.0;
+	float min_z = 10.0;
 
-	tri.v0 -= vec4(1,1,1,1);
-	tri.v1 -= vec4(1,1,1,1);
-	tri.v2 -= vec4(1,1,1,1);
+	std::vector<glm::vec4> output;	
 
-	tri.v0.x *= -1;
-	tri.v1.x *= -1;
-	tri.v2.x *= -1;
+	for(int i = 0; i < verticies.size(); i++) {
 
-	tri.v0.y *= -1;
-	tri.v1.y *= -1;
-	tri.v2.y *= -1;
+		if(verticies[i].x > max_x) {
+			max_x = verticies[i].x;
+		}
+		if(verticies[i].y > max_y) {
+			max_y = verticies[i].y;
+		}
+		if(verticies[i].z > max_z) {
+			max_z = verticies[i].z;
+		}
 
-	tri.v0.w = 1.0;
-	tri.v1.w = 1.0;
-	tri.v2.w = 1.0;
-		
-	tri.ComputeNormal();
-	return tri;
+		if(verticies[i].x < min_x) {
+			min_x = verticies[i].x;
+		}
+
+		if(verticies[i].x < min_y) {
+			min_y = verticies[i].y;
+		}
+
+		if(verticies[i].x < min_z) {
+			min_z = verticies[i].z;
+		}
+	}
+
+	float max_diff_x = max_x-min_x;
+	float max_diff_y = max_y-min_y;
+	float max_diff_z = max_z-min_z;
+
+	float max = std::max(max_diff_x, max_diff_y);
+	max = std::max(max, max_diff_z);
+
+	float scale = (0.7 / max) - 1;
+
+	for(int i = 0; i < verticies.size(); i++) {
+		output.push_back((verticies[i] * scale) + vec4(0.35,0.5,-0.5,0));
+
+	}
+
+	cout << "Here" << endl;
+
+	return output;
 }
 
 
@@ -61,10 +90,11 @@ bool loadOBJ(const char * path, std::vector<Triangle>&triangles){
 
 	    return false;
 	}
-	
+
+	std::vector<Triangle> scaledTriangles;
 	
 
-	std::vector< unsigned int > vertexIndices, uvIndices, normalIndices;
+	std::vector< unsigned int > vertexIndicesA, vertexIndicesB,vertexIndicesC, uvIndices, normalIndices;
 	
 	std::vector< glm::vec4 > temp_vertices;
 	std::vector< glm::vec2 > temp_uvs;
@@ -81,6 +111,7 @@ bool loadOBJ(const char * path, std::vector<Triangle>&triangles){
 	    	// If the first word of the line is “v”, then the rest has to be 3 floats, so create a glm::vec3 out of them, and add it to the vector.
 		    glm::vec4 vertex;
 		    fscanf(file, "%f %f %f\n", &vertex.x, &vertex.y, &vertex.z );
+		    vertex.y = -vertex.y;
 		    vertex.w = 1;
 		    temp_vertices.push_back(vertex);
 		}
@@ -108,9 +139,9 @@ bool loadOBJ(const char * path, std::vector<Triangle>&triangles){
 		        printf("File can't be read by our simple parser : ( Try exporting with other options\n");
 		        return false;
 		    }
-		    vertexIndices.push_back(vertexIndex[0]);
-		    vertexIndices.push_back(vertexIndex[1]);
-		    vertexIndices.push_back(vertexIndex[2]);
+		    vertexIndicesA.push_back(vertexIndex[0]);
+		    vertexIndicesB.push_back(vertexIndex[1]);
+		    vertexIndicesC.push_back(vertexIndex[2]);
 		    
 		    // uvIndices    .push_back(uvIndex[0]);
 		    // uvIndices    .push_back(uvIndex[1]);
@@ -118,36 +149,57 @@ bool loadOBJ(const char * path, std::vector<Triangle>&triangles){
 		    // normalIndices.push_back(normalIndex[0]);
 		    // normalIndices.push_back(normalIndex[1]);
 		    // normalIndices.push_back(normalIndex[2]);
-		    
+		  
+
+			// for( int i=0; i < vertexIndices.size(); i++ ){
+			// 	// For each vertex of each triangle
+			// 	// cout << vertexIndices[i] << endl;
+			// 	unsigned int vertexIndex = vertexIndices[i];
+			// 	if(i == 0 ) A = temp_vertices[ vertexIndex-1 ];
+			// 	if(i == 1 ) B = temp_vertices[ vertexIndex-1 ];
+			// 	if(i == 2 ) C = temp_vertices[ vertexIndex-1 ];
+			// }
 
 
-		    vec3 white(1.0f,1.0f,1.0f);
-			vec4 A;
-			vec4 B;
-			vec4 C;
-			vec4 normal;
-			// max and minimum vertex function to find the correct scale!
-			for( int i=0; i < vertexIndices.size(); i++ ){
-				// For each vertex of each triangle
-				unsigned int vertexIndex = vertexIndices[i];
-				if(i == 0 ) A = temp_vertices[ vertexIndex-1 ];
-				if(i == 1 ) B = temp_vertices[ vertexIndex-1 ];
-				if(i == 2 ) C = temp_vertices[ vertexIndex-1 ];
-			}
+			// // normal = temp_normals[normalIndex[0]-1];
 
 
-			
-			// normal = temp_normals[normalIndex[0]-1];
 
-			Triangle temp_triangle = Triangle( A, B, C, white );
-			//temp_triangle = scale(temp_triangle);
-			triangles.push_back(temp_triangle);			
+			// Triangle temp_triangle = Triangle( A, B, C, white );
+			// //temp_triangle = scale(temp_triangle);
+			// //triangles.push_back(temp_triangle);
+			// scaledTriangles.push_back(temp_triangle);
 
 		}
 
+		
+
 
 	}
-	
+
+	vec3 white(0.5f,0.5f,0.5f);
+	vec4 A;
+	vec4 B;
+	vec4 C;
+	vec4 normal;
+
+	std::vector<glm::vec4> scaled_verticies;
+	//scale temp_verticies:
+	scaled_verticies = scale(temp_vertices);
+	cout << scaled_verticies[0].x << endl;
+
+	for(int i = 0; i < vertexIndicesA.size(); i++){
+		A = scaled_verticies[vertexIndicesA[i]-1];
+		B = scaled_verticies[vertexIndicesB[i]-1];
+		C = scaled_verticies[vertexIndicesC[i]-1];
+
+		Triangle temp_triangle = Triangle(A, B, C, white,false);
+		triangles.push_back(temp_triangle);
+
+	}
+
+
+	// cout << scaledTriangles[1].v0.x<< "," << scaledTriangles[1].v0.y << "," << scaledTriangles[1].v0.z <<endl;	
 	return true;
 
 }
