@@ -455,11 +455,30 @@ void testComputePolygonRows(){
     }
 }
 void Interpolate( Pixel a, Pixel b, vector<Pixel>& result ){
+    Pixel c;
+    Pixel d;
     int N = result.size();
     float temp = float(max(N-1,1));
     
     vec3 step;
     vec4 posStep;
+    c.x = a.x;
+    c.y = a.y;
+    c.zinv = a.zinv;
+    c.pos3d = a.pos3d;
+
+    d.x = b.x;
+    d.y = b.y;
+    d.zinv = b.zinv;
+    d.pos3d = b.pos3d;
+
+
+
+    c.pos3d.x = c.pos3d.x * c.zinv;
+    c.pos3d.y  = c.pos3d.y * c.zinv;
+    
+    d.pos3d.x = d.pos3d.x * d.zinv;
+    d.pos3d.y = d.pos3d.y * d.zinv;
 
 
 
@@ -467,13 +486,14 @@ void Interpolate( Pixel a, Pixel b, vector<Pixel>& result ){
     step.y = (b.y - a.y) / temp;
     step.z = (b.zinv - a.zinv) / temp;
 
-    posStep.x = (b.pos3d.x - a.pos3d.x) / temp;
-    posStep.y = (b.pos3d.y - a.pos3d.y) / temp;
+    posStep.x = (d.pos3d.x - c.pos3d.x) / temp;
+    posStep.y = (d.pos3d.y - c.pos3d.y) / temp;
     posStep.z = (b.pos3d.z - a.pos3d.z) / temp;
 
 
+
     vec3 current( a.x,a.y,a.zinv );
-    vec4 currentPos(a.pos3d.x,a.pos3d.y,a.pos3d.z,1.0f);
+    vec4 currentPos(c.pos3d.x,c.pos3d.y,c.pos3d.z,1.0f);
     for( int i=0; i<N; ++i )
     {
        result[i].x = current.x;
@@ -497,6 +517,12 @@ void Interpolate( Pixel a, Pixel b, vector<Pixel>& result ){
        // cout << result[i].x << endl;
        // cout << result[i].y << endl;
     }
+    for(int i = 0; i < N;i ++)
+    {
+        result[i].pos3d.x = result[i].pos3d.x / result[i].zinv;
+        result[i].pos3d.y = result[i].pos3d.y / result[i].zinv;
+    }
+
 }
 void Interpolate( vec2 a, vec2 b, vector<ivec2>& result ){
     int N = result.size();
