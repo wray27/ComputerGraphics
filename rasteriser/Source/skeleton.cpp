@@ -69,7 +69,8 @@ void DrawPolygonRows( const vector<Pixel>& leftPixels,const vector<Pixel>& right
 void PixelShader( const Pixel& p,screen* screen);
 vec3 light( const vec4& v );
 void DrawPolygon( const vector<Vertex>& vertices,screen* screen);
-
+vec4 toClipSpace(vec4 worldSpace);
+bool onScreen(vec4 clipSpace);
 
 int main( int argc, char* argv[] ){
   // testComputePolygonRows();
@@ -87,6 +88,23 @@ int main( int argc, char* argv[] ){
   KillSDL(screen);
   return 0;
 }
+bool onScreen(vec4 clipSpace){
+    bool onScreen = false;
+    if( (clipSpace.x >= clipSpace.w*SCREEN_WIDTH*-1 &&  
+        clipSpace.x <=  clipSpace.w*SCREEN_WIDTH)  &&
+        (clipSpace.y >= clipSpace.w*SCREEN_HEIGHT*-1  &&  
+        clipSpace.y <= clipSpace.w*SCREEN_HEIGHT) ){
+        onScreen = true;
+    }
+    return onScreen;
+}
+vec4 toClipSpace(vec4 worldSpace){
+    vec4 clipSpace;
+    clipSpace = worldSpace;
+    clipSpace.w = worldSpace.z/f;
+    return clipSpace;
+
+}
 /*Place your drawing here*/
 void Draw(screen* screen){
     /* Clear buffer */
@@ -100,6 +118,9 @@ void Draw(screen* screen){
    
     vec3 colour(1.0,1.0,1.0);
     vector<Vertex> triangleVerts(3);
+    vector<vec4> clipPositions(3);
+    vector<Triangle> keepTriangles;
+
 
     
    
@@ -109,15 +130,38 @@ void Draw(screen* screen){
     
     // vector<ivec2> line( pixels );
     // Interpolate( a, b, line );
-    
-    for(int i=0; i<triangles.size(); i++)
-    {  
-        currentReflectance = triangles[i].color;
-        currentNormal = triangles[i].normal;
-        
+    bool addTriangle;
+    for(int i=0; i<triangles.size(); i++){
+        addTriangle = true;
         triangleVerts[0].position = triangles[i].v0;
         triangleVerts[1].position = triangles[i].v1;
         triangleVerts[2].position = triangles[i].v2;
+        //converts the coordinates of the vertices of each triangle from world space to clip space
+        for(int j = 0; j <3;j++){
+            clipPositions[j] = toClipSpace(triangleVerts[j].position); 
+            if(!onScreen(clipPositions[j])) addTriangle = false; 
+        }
+        if(addTriangle){
+
+            Triangle temp  = triangles[i];
+            temp.v0 = clipPositions[0];
+            temp.v1 = clipPositions[1];
+            temp.v2 = clipPositions[2];
+            keepTriangles.push_back(triangles[i]);
+        } 
+
+
+
+    }
+    
+    for(int i=0; i<keepTriangles.size(); i++)
+    {  
+        currentReflectance = keepTriangles[i].color;
+        currentNormal = keepTriangles[i].normal;
+        
+        triangleVerts[0].position = keepTriangles[i].v0;
+        triangleVerts[1].position = keepTriangles[i].v1;
+        triangleVerts[2].position = keepTriangles[i].v2;
 
         // power = light(triangleVerts[0]);
         // reflectance = (power + indirectLightPowerPerArea) * currentColor;
@@ -210,6 +254,7 @@ void VertexShader( const vec4& v, ivec2& p ){
 
 
 
+    
     p.x = (f * (temp.x/temp.z)) + (SCREEN_WIDTH /2);
     p.y = (f * (temp.y/temp.z)) + (SCREEN_HEIGHT /2);
 }
@@ -227,6 +272,8 @@ void VertexShader( const Vertex& v, Pixel& p){
     // // cout << "colour val  = " << p.illumination.x;
     // p.illumination = vec3(1.0f,1.0f,1.0f);
    
+    
+    
 
 
     R = setRotationMat(R,yaw);
@@ -239,8 +286,12 @@ void VertexShader( const Vertex& v, Pixel& p){
     // calculates the inverse of the z coordinate for each pixel - used for depth calculations
     p.zinv = 1 / temp.z;
 
+    
+
+
     p.x = (f * (temp.x/temp.z)) + (SCREEN_WIDTH /2);
     p.y = (f * (temp.y/temp.z)) + (SCREEN_HEIGHT /2);
+ 
 }
 void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels ){
 
