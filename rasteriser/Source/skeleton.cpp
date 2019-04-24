@@ -90,18 +90,22 @@ int main( int argc, char* argv[] ){
 }
 bool onScreen(vec4 clipSpace){
     bool onScreen = false;
-    if( (clipSpace.x >= clipSpace.w*SCREEN_WIDTH*-1 &&  
-        clipSpace.x <=  clipSpace.w*SCREEN_WIDTH)  &&
-        (clipSpace.y >= clipSpace.w*SCREEN_HEIGHT*-1  &&  
-        clipSpace.y <= clipSpace.w*SCREEN_HEIGHT) ){
+    
+    if( (clipSpace.x >= clipSpace.w*(SCREEN_WIDTH/2)*-1 &&  
+        clipSpace.x <=  clipSpace.w*(SCREEN_WIDTH/2))  &&
+        (clipSpace.y >= clipSpace.w*(SCREEN_HEIGHT/2)*-1  &&  
+        clipSpace.y <= clipSpace.w*(SCREEN_HEIGHT/2) )){
         onScreen = true;
     }
     return onScreen;
 }
 vec4 toClipSpace(vec4 worldSpace){
     vec4 clipSpace;
-    clipSpace = worldSpace;
-    clipSpace.w = worldSpace.z/f;
+    clipSpace = worldSpace - cameraPos;
+    
+
+    clipSpace.w = clipSpace.z/f;
+    // clipSpace -= cameraPos;
     return clipSpace;
 
 }
