@@ -36,6 +36,11 @@ struct Pixel
        float zinv;
        vec4 pos3d;
 };
+struct ClippedTriangle
+{
+       Triangle tri;
+       Vector<int> clipIndices;
+};
 
 struct Vertex
 {
@@ -99,6 +104,7 @@ bool onScreen(vec4 clipSpace){
     }
     return onScreen;
 }
+// Changes the coordinate from world space to clip space
 vec4 toClipSpace(vec4 worldSpace){
     vec4 clipSpace;
     clipSpace = worldSpace - cameraPos;
@@ -124,6 +130,7 @@ void Draw(screen* screen){
     vector<Vertex> triangleVerts(3);
     vector<vec4> clipPositions(3);
     vector<Triangle> keepTriangles;
+    vector<Triangle> clippedTriangles;
 
 
     
@@ -134,6 +141,8 @@ void Draw(screen* screen){
     
     // vector<ivec2> line( pixels );
     // Interpolate( a, b, line );
+
+    // boolean to add triangles that do not need to be clipped
     bool addTriangle;
     for(int i=0; i<triangles.size(); i++){
         addTriangle = true;
@@ -143,16 +152,17 @@ void Draw(screen* screen){
         //converts the coordinates of the vertices of each triangle from world space to clip space
         for(int j = 0; j <3;j++){
             clipPositions[j] = toClipSpace(triangleVerts[j].position); 
-            if(!onScreen(clipPositions[j])) addTriangle = false; 
-        }
-        if(addTriangle){
+            if(!onScreen(clipPositions[j])){
+                addTriangle = false;
 
-            Triangle temp  = triangles[i];
-            temp.v0 = clipPositions[0];
-            temp.v1 = clipPositions[1];
-            temp.v2 = clipPositions[2];
+            } 
+        }
+        Triangle temp  = triangles[i];
+        if(addTriangle){
             keepTriangles.push_back(triangles[i]);
-        } 
+        }else{
+            clippedTriangles.push_back(triangles[i]);
+        }
 
 
 
