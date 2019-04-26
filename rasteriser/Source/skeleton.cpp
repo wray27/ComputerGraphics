@@ -36,17 +36,20 @@ struct Pixel
        float zinv;
        vec4 pos3d;
 };
-struct ClippedTriangle
-{
-       Triangle tri;
-       Vector<int> clipIndices;
-};
+
 
 struct Vertex
 {
     vec4 position;
+    bool onScreen;
+
     // vec4 normal;
     // vec3 reflectance;
+};
+struct ClippedTriangle
+{
+       vector<Vertex> vertices;
+       int offScreenCount;
 };
 
 vec4 currentNormal;
@@ -96,10 +99,10 @@ int main( int argc, char* argv[] ){
 bool onScreen(vec4 clipSpace){
     bool onScreen = false;
     
-    if( (clipSpace.x >= clipSpace.w*(SCREEN_WIDTH/2)*-1 &&  
-        clipSpace.x <=  clipSpace.w*(SCREEN_WIDTH/2))  &&
-        (clipSpace.y >= clipSpace.w*(SCREEN_HEIGHT/2)*-1  &&  
-        clipSpace.y <= clipSpace.w*(SCREEN_HEIGHT/2) )){
+    if( clipSpace.x >= clipSpace.w*(SCREEN_WIDTH/2)*-1 &&  
+        clipSpace.x <=  clipSpace.w*(SCREEN_WIDTH/2)  &&
+        clipSpace.y >= clipSpace.w*(SCREEN_HEIGHT/2)*-1  &&  
+        clipSpace.y <= clipSpace.w*(SCREEN_HEIGHT/2) ){
         onScreen = true;
     }
     return onScreen;
@@ -108,8 +111,6 @@ bool onScreen(vec4 clipSpace){
 vec4 toClipSpace(vec4 worldSpace){
     vec4 clipSpace;
     clipSpace = worldSpace - cameraPos;
-    
-
     clipSpace.w = clipSpace.z/f;
     // clipSpace -= cameraPos;
     return clipSpace;
@@ -129,12 +130,12 @@ void Draw(screen* screen){
     vec3 colour(1.0,1.0,1.0);
     vector<Vertex> triangleVerts(3);
     vector<vec4> clipPositions(3);
+    
     vector<Triangle> keepTriangles;
-    vector<Triangle> clippedTriangles;
-
+    vector<ClippedTriangle> clippedTriangles;
 
     
-   
+
     
     // ivec2 delta = glm::abs( a - b );
     // int pixels = glm::max( delta.x, delta.y ) + 1;
@@ -144,7 +145,12 @@ void Draw(screen* screen){
 
     // boolean to add triangles that do not need to be clipped
     bool addTriangle;
+    int offScreenCount = 0;
+    
+    // CLIPPING
     for(int i=0; i<triangles.size(); i++){
+       
+
         addTriangle = true;
         triangleVerts[0].position = triangles[i].v0;
         triangleVerts[1].position = triangles[i].v1;
@@ -153,21 +159,75 @@ void Draw(screen* screen){
         for(int j = 0; j <3;j++){
             clipPositions[j] = toClipSpace(triangleVerts[j].position); 
             if(!onScreen(clipPositions[j])){
+                triangleVerts[j].onScreen = false;
                 addTriangle = false;
-
-            } 
+                offScreenCount++;
+            } else{
+                triangleVerts[j].onScreen = true;
+            }
         }
-        Triangle temp  = triangles[i];
+        
+        
         if(addTriangle){
             keepTriangles.push_back(triangles[i]);
         }else{
-            clippedTriangles.push_back(triangles[i]);
+            ClippedTriangle clippedTri;
+            clippedTri.vertices = triangleVerts;
+            clippedTri.offScreenCount = offScreenCount;
+
+            clippedTriangles.push_back(clippedTri);
+        }
+
+        offScreenCount = 0;
+
+    }
+
+    vector<vec4> intersections(2);
+    
+    // ADDING NEW TRIANGLES
+    for(int i = 0; i < clippedTriangles.size();i++){
+        
+    // CASE 1 
+    /*
+        If there's 1 vertex out, then you gotta take the 2 intersection points and 2 original vertices and create 2 new triangles
+
+    */
+        if(clippedTriangles[i].offScreenCount == 1){
+            int offScreenIndex = 0;
+            for(int j = 0; j < 3;j++) if(!clippedTriangles[i].vertices[j].onScreen) offScreenIndex = j;;
+            for(int j = 0; j < 3;j++){
+                if(j != offScreenIndex){
+                    // clippedTriangles[i].vertices[j]
+                }
+            }
         }
 
 
 
+    // CASE 2 
+    /*
+        If 2 vertices are out, just join the intersection point to create new triangle. 
+
+    */
+
+        if(clippedTriangles[i].offScreenCount == 2){
+            int onScreenIndex = 0;
+            for(int j = 0; j < 3;j++) if(clippedTriangles[i].vertices[j].onScreen) onScreenIndex = j;;
+            for(int j = 0; j < 3;j++){
+                if(j == onScreenIndex){
+                    // clippedTriangles[i].vertices[j]
+                }
+            }
+        }
+
+        
     }
     
+
+
+
+
+
     for(int i=0; i<keepTriangles.size(); i++)
     {  
         currentReflectance = keepTriangles[i].color;
