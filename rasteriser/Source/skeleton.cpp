@@ -50,6 +50,7 @@ struct ClippedTriangle
 {
        vector<Vertex> vertices;
        int offScreenCount;
+       vec3 color;
 };
 
 vec4 currentNormal;
@@ -79,6 +80,7 @@ vec3 light( const vec4& v );
 void DrawPolygon( const vector<Vertex>& vertices,screen* screen);
 vec4 toClipSpace(vec4 worldSpace);
 bool onScreen(vec4 clipSpace);
+vec4 intersection(vec4 q1,vec4 q2);
 
 int main( int argc, char* argv[] ){
   // testComputePolygonRows();
@@ -174,6 +176,7 @@ void Draw(screen* screen){
             ClippedTriangle clippedTri;
             clippedTri.vertices = triangleVerts;
             clippedTri.offScreenCount = offScreenCount;
+            clippedTri.color = triangles[i].color;
 
             clippedTriangles.push_back(clippedTri);
         }
@@ -182,11 +185,14 @@ void Draw(screen* screen){
 
     }
 
-    vector<vec4> intersections(2);
+    
     
     // ADDING NEW TRIANGLES
     for(int i = 0; i < clippedTriangles.size();i++){
-        
+        cout << "clippedTriangle no. " << i << " out of " << clippedTriangles.size()-1 << "\n";
+        vector<vec4> intersections;
+        vector<vec4> twoVectors;
+
     // CASE 1 
     /*
         If there's 1 vertex out, then you gotta take the 2 intersection points and 2 original vertices and create 2 new triangles
@@ -194,12 +200,19 @@ void Draw(screen* screen){
     */
         if(clippedTriangles[i].offScreenCount == 1){
             int offScreenIndex = 0;
+            cout << " here1 \n";
             for(int j = 0; j < 3;j++) if(!clippedTriangles[i].vertices[j].onScreen) offScreenIndex = j;;
             for(int j = 0; j < 3;j++){
                 if(j != offScreenIndex){
-                    // clippedTriangles[i].vertices[j]
+                    twoVectors.push_back(clippedTriangles[i].vertices[j].position);
+                    intersections.push_back(intersection(clippedTriangles[i].vertices[j].position,clippedTriangles[i].vertices[offScreenIndex].position));
+
                 }
-            }
+            }          
+            cout << " here2 \n";
+            keepTriangles.push_back( Triangle( intersections[0], twoVectors[0], twoVectors[1], clippedTriangles[i].color ) );
+            keepTriangles.push_back( Triangle( intersections[1], twoVectors[0], twoVectors[1], clippedTriangles[i].color ) );
+            cout << " 2 new triangles! \n";
         }
 
 
@@ -212,37 +225,44 @@ void Draw(screen* screen){
 
         if(clippedTriangles[i].offScreenCount == 2){
             int onScreenIndex = 0;
+            cout << " here3 \n";
             for(int j = 0; j < 3;j++) if(clippedTriangles[i].vertices[j].onScreen) onScreenIndex = j;;
             for(int j = 0; j < 3;j++){
-                if(j == onScreenIndex){
-                    // clippedTriangles[i].vertices[j]
+                if(j != onScreenIndex){
+                    twoVectors.push_back(clippedTriangles[i].vertices[j].position);
+                    intersections.push_back(intersection(clippedTriangles[i].vertices[onScreenIndex].position,clippedTriangles[i].vertices[j].position));
                 }
             }
+            cout << " here4 \n";
+            keepTriangles.push_back( Triangle( intersections[0], intersections[1], twoVectors[0], clippedTriangles[i].color ) );
+            cout << " 1 new triangle! \n";
         }
 
         
     }
     
 
+    
 
-
-
-
+    vector<Vertex> keepTriangleVerts(3);
+    
     for(int i=0; i<keepTriangles.size(); i++)
     {  
+
+        // cout << "okay \n";
         currentReflectance = keepTriangles[i].color;
         currentNormal = keepTriangles[i].normal;
         
-        triangleVerts[0].position = keepTriangles[i].v0;
-        triangleVerts[1].position = keepTriangles[i].v1;
-        triangleVerts[2].position = keepTriangles[i].v2;
+        keepTriangleVerts[0].position = keepTriangles[i].v0;
+        keepTriangleVerts[1].position = keepTriangles[i].v1;
+        keepTriangleVerts[2].position = keepTriangles[i].v2;
+        // cout << " --okay \n";
 
         // power = light(triangleVerts[0]);
         // reflectance = (power + indirectLightPowerPerArea) * currentColor;
         // triangleVerts[0].reflectance = currentColor ;
         // triangleVerts[0].normal = triangles[i].normal;
 
-        
         // power = light(triangleVerts[1]);
         // reflectance = (power + indirectLightPowerPerArea) * currentColor;
         // triangleVerts[1].reflectance = currentColor ;
@@ -257,9 +277,26 @@ void Draw(screen* screen){
         
 
         // DrawPolygonEdges(triangleVerts,screen);
-        DrawPolygon(triangleVerts,screen);
+        DrawPolygon(keepTriangleVerts,screen);
+        // cout << " --poly drawn \n";
         
     }
+}
+vec4 intersection(vec4 q1, vec4 q2){
+    vec4 c1,c2;
+
+
+    c1 = toClipSpace(q1);
+    c2 = toClipSpace(q2);
+    float t = ( c1.w - (SCREEN_WIDTH/2)*c1.x )/( ( c1.w - (SCREEN_WIDTH/2)*c1.x  ) - ( c2.w - (SCREEN_WIDTH/2)*c2.x ) );
+    // float t = ( c1.w - (SCREEN_WIDTH/2)*c1.y )/( ( c1.w - (SCREEN_WIDTH/2)*c1.y  ) - ( c2.w - (SCREEN_WIDTH/2)*c2.y ) );
+    vec4 intersection = (c1 + t*(c2 - c1)) + cameraPos;
+    cout << "Intersection: ";
+    cout << "( " << intersection.x << "," << intersection.y <<  "," << intersection.z << "," << intersection.w << ")" << "\n";
+    return intersection;
+
+
+
 }
 void PixelShader( const Pixel& p,screen* screen){
     int x = p.x;
