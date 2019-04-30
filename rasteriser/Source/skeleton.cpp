@@ -188,14 +188,156 @@ void clipTop(ClippedTriangle clippedTriangle,vector<Triangle> &keepTriangles){
 }
 
 void clipRight(ClippedTriangle clippedTriangle,vector<Triangle> &keepTriangles){
+    vector<int> outIndices;
+    outIndices = numVerticesOut(clippedTriangle,2);
+    
 
+    // // CASE 1 
+    // /*
+    //     If there's 1 vertex out, then you gotta take the 2 intersection points and 2 original vertices and create 2 new triangles
+
+    // */
+
+    if(outIndices.size() == 1){
+        vector<vec4> intersections;
+        vector<vec4> twoVectors;
+
+        for(int j = 0; j < 3;j++){
+            if(j != outIndices[0]){
+                twoVectors.push_back(clippedTriangle.vertices[j].position);
+                intersections.push_back(intersection(clippedTriangle.vertices[j].position,clippedTriangle.vertices[outIndices[0]].position,2));
+            }
+        }          
+       
+        keepTriangles.push_back( Triangle( intersections[0], twoVectors[0], twoVectors[1], clippedTriangle.color ) );
+        keepTriangles.push_back( Triangle( intersections[1], twoVectors[0], twoVectors[1], clippedTriangle.color ) );
+        cout << " 2 new triangles! \n";
+    }
+    
+    // // CASE 2 
+    // /*
+    //     If 2 vertices are out, just join the intersection point to create new triangle. 
+
+    // */
+    if(outIndices.size() == 2){
+        vector<vec4> intersections;
+        vector<vec4> twoVectors;
+
+        for(int j = 0; j < 3;j++){
+            if(j != outIndices[0]  && j != outIndices[1] ){
+                twoVectors.push_back(clippedTriangle.vertices[outIndices[0]].position);
+                twoVectors.push_back(clippedTriangle.vertices[outIndices[1]].position);
+                intersections.push_back(intersection(clippedTriangle.vertices[j].position,clippedTriangle.vertices[outIndices[0]].position,2));
+                intersections.push_back(intersection(clippedTriangle.vertices[j].position,clippedTriangle.vertices[outIndices[1]].position,2));
+            }
+        }          
+       
+        keepTriangles.push_back( Triangle( intersections[0], twoVectors[0], twoVectors[1], clippedTriangle.color ) );
+        keepTriangles.push_back( Triangle( intersections[1], twoVectors[0], twoVectors[1], clippedTriangle.color ) );
+        cout << " 2 new triangles! \n";
+    }
 }
 
 void clipLeft(ClippedTriangle clippedTriangle,vector<Triangle> &keepTriangles){
+    vector<int> outIndices;
+    outIndices = numVerticesOut(clippedTriangle,1);
+    
+
+    // // CASE 1 
+    // /*
+    //     If there's 1 vertex out, then you gotta take the 2 intersection points and 2 original vertices and create 2 new triangles
+
+    // */
+
+    if(outIndices.size() == 1){
+        vector<vec4> intersections;
+        vector<vec4> twoVectors;
+
+        for(int j = 0; j < 3;j++){
+            if(j != outIndices[0]){
+                twoVectors.push_back(clippedTriangle.vertices[j].position);
+                intersections.push_back(intersection(clippedTriangle.vertices[j].position,clippedTriangle.vertices[outIndices[0]].position,3));
+            }
+        }          
+       
+        keepTriangles.push_back( Triangle( intersections[0], twoVectors[0], twoVectors[1], clippedTriangle.color ) );
+        keepTriangles.push_back( Triangle( intersections[1], twoVectors[0], twoVectors[1], clippedTriangle.color ) );
+        cout << " 2 new triangles! \n";
+    }
+    
+    // // CASE 2 
+    // /*
+    //     If 2 vertices are out, just join the intersection point to create new triangle. 
+
+    // */
+    if(outIndices.size() == 2){
+        vector<vec4> intersections;
+        vector<vec4> twoVectors;
+
+        for(int j = 0; j < 3;j++){
+            if(j != outIndices[0]  && j != outIndices[1] ){
+                twoVectors.push_back(clippedTriangle.vertices[outIndices[0]].position);
+                twoVectors.push_back(clippedTriangle.vertices[outIndices[1]].position);
+                intersections.push_back(intersection(clippedTriangle.vertices[j].position,clippedTriangle.vertices[outIndices[0]].position,3));
+                intersections.push_back(intersection(clippedTriangle.vertices[j].position,clippedTriangle.vertices[outIndices[1]].position,3));
+            }
+        }          
+       
+        keepTriangles.push_back( Triangle( intersections[0], twoVectors[0], twoVectors[1], clippedTriangle.color ) );
+        keepTriangles.push_back( Triangle( intersections[1], twoVectors[0], twoVectors[1], clippedTriangle.color ) );
+        cout << " 2 new triangles! \n";
+    }
 
 }
 void clipBottom(ClippedTriangle clippedTriangle,vector<Triangle> &keepTriangles){
+    vector<int> outIndices;
+    outIndices = numVerticesOut(clippedTriangle,4);
+    
 
+    // // CASE 1 
+    // /*
+    //     If there's 1 vertex out, then you gotta take the 2 intersection points and 2 original vertices and create 2 new triangles
+
+    // */
+
+    if(outIndices.size() == 1){
+        vector<vec4> intersections;
+        vector<vec4> twoVectors;
+
+        for(int j = 0; j < 3;j++){
+            if(j != outIndices[0]){
+                twoVectors.push_back(clippedTriangle.vertices[j].position);
+                intersections.push_back(intersection(clippedTriangle.vertices[j].position,clippedTriangle.vertices[outIndices[0]].position,1));
+            }
+        }          
+       
+        keepTriangles.push_back( Triangle( intersections[0], twoVectors[0], twoVectors[1], clippedTriangle.color ) );
+        keepTriangles.push_back( Triangle( intersections[1], twoVectors[0], twoVectors[1], clippedTriangle.color ) );
+        cout << " 2 new triangles! \n";
+    }
+    
+    // // CASE 2 
+    // /*
+    //     If 2 vertices are out, just join the intersection point to create new triangle. 
+
+    // */
+    if(outIndices.size() == 2){
+        vector<vec4> intersections;
+        vector<vec4> twoVectors;
+
+        for(int j = 0; j < 3;j++){
+            if(j != outIndices[0]  && j != outIndices[1] ){
+                twoVectors.push_back(clippedTriangle.vertices[outIndices[0]].position);
+                twoVectors.push_back(clippedTriangle.vertices[outIndices[1]].position);
+                intersections.push_back(intersection(clippedTriangle.vertices[j].position,clippedTriangle.vertices[outIndices[0]].position,1));
+                intersections.push_back(intersection(clippedTriangle.vertices[j].position,clippedTriangle.vertices[outIndices[1]].position,1));
+            }
+        }          
+       
+        keepTriangles.push_back( Triangle( intersections[0], twoVectors[0], twoVectors[1], clippedTriangle.color ) );
+        keepTriangles.push_back( Triangle( intersections[1], twoVectors[0], twoVectors[1], clippedTriangle.color ) );
+        cout << " 2 new triangles! \n";
+    }
 }
 vector<int> numVerticesOut(ClippedTriangle triangle, int plane){
     vector<int> indices;
@@ -419,6 +561,8 @@ vec4 intersection(vec4 q1, vec4 q2,int plane){
     float t;
     // TOP
     // BOTTOM
+    // RIGHT
+    // LEFT
     switch(plane){
         case 0:
             t = ( c1.w - (2/SCREEN_HEIGHT)*c1.x )/( ( c1.w - (2/SCREEN_HEIGHT)*c1.x  ) - ( c2.w - (2/SCREEN_HEIGHT)*c2.x ) );
