@@ -42,6 +42,8 @@ struct Vertex
 {
     vec4 position;
     bool onScreen;
+    vec4 clipSpace;
+    unsigned int outcode ;
 
     // vec4 normal;
     // vec3 reflectance;
@@ -58,11 +60,17 @@ vec3 currentReflectance;
 // focal length of the camera
 float f = SCREEN_WIDTH;
 
+
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
 
 bool Update();
 void Draw(screen* screen);
+
+
+
+
+
 void VertexShader( const vec4& v, ivec2& p );
 void VertexShader( const Vertex& v, Pixel& p);
 void Interpolate( vec2 a, vec2 b, vector<ivec2>& result );
@@ -80,7 +88,14 @@ vec3 light( const vec4& v );
 void DrawPolygon( const vector<Vertex>& vertices,screen* screen);
 vec4 toClipSpace(vec4 worldSpace);
 bool onScreen(vec4 clipSpace);
-vec4 intersection(vec4 q1,vec4 q2);
+vec4 intersection(vec4 q1,vec4 q2,int plane);
+void clipRight(ClippedTriangle clippedTriangle,vector<Triangle> &keepTriangles);
+void clipTop(ClippedTriangle clippedTriangle,vector<Triangle> &keepTriangles);
+void clipLeft(ClippedTriangle clippedTriangle,vector<Triangle> &keepTriangles);
+void clipBottom(ClippedTriangle clippedTriangle,vector<Triangle> &keepTriangles);
+void clipping(ClippedTriangle clippedTriangle,vector<Triangle> &keepTriangles);
+void computeOutcode(Vertex &v);
+vector<int> numVerticesOut(ClippedTriangle triangle, int plane);
 
 int main( int argc, char* argv[] ){
   // testComputePolygonRows();
@@ -98,25 +113,132 @@ int main( int argc, char* argv[] ){
   KillSDL(screen);
   return 0;
 }
-bool onScreen(vec4 clipSpace){
-    bool onScreen = false;
+void computeOutcode(Vertex &v){
+    float xMax = v.position.w*(SCREEN_WIDTH/2);
+    float yMax = v.position.w*(SCREEN_HEIGHT/2);
+
+    if (v.position.y > yMax) v.outcode |= 8;
+    if (v.position.y < -yMax) v.outcode |= 4;
+    if (v.position.y > xMax) v.outcode |= 2;
+    if (v.position.y < -xMax) v.outcode |= 1;
+}
+
+void clipping(ClippedTriangle clippedTriangle,vector<Triangle> &keepTriangles){
     
-    if( clipSpace.x >= clipSpace.w*(SCREEN_WIDTH/2)*-1 &&  
-        clipSpace.x <=  clipSpace.w*(SCREEN_WIDTH/2)  &&
-        clipSpace.y >= clipSpace.w*(SCREEN_HEIGHT/2)*-1  &&  
-        clipSpace.y <= clipSpace.w*(SCREEN_HEIGHT/2) ){
-        onScreen = true;
+
+    for(int i =0; i < 3;i++){
+        
+            if( (clippedTriangle.vertices[i].outcode &  8) == 0 ) clipTop(clippedTriangle,keepTriangles);
+            if( (clippedTriangle.vertices[i].outcode &  4) == 0 ) clipBottom(clippedTriangle,keepTriangles);
+            if( (clippedTriangle.vertices[i].outcode &  2) == 0 ) clipRight(clippedTriangle,keepTriangles);
+            if( (clippedTriangle.vertices[i].outcode &  1) == 0 ) clipLeft(clippedTriangle,keepTriangles);
+     
     }
+
+}
+void clipTop(ClippedTriangle clippedTriangle,vector<Triangle> &keepTriangles){
+    vector<int> outIndices;
+    outIndices = numVerticesOut(clippedTriangle,8);
+    
+
+    // // CASE 1 
+    // /*
+    //     If there's 1 vertex out, then you gotta take the 2 intersection points and 2 original vertices and create 2 new triangles
+
+    // */
+
+    if(outIndices.size() == 1){
+        vector<vec4> intersections;
+        vector<vec4> twoVectors;
+
+        for(int j = 0; j < 3;j++){
+            if(j != outIndices[0]){
+                twoVectors.push_back(clippedTriangle.vertices[j].position);
+                intersections.push_back(intersection(clippedTriangle.vertices[j].position,clippedTriangle.vertices[outIndices[0]].position,0));
+            }
+        }          
+       
+        keepTriangles.push_back( Triangle( intersections[0], twoVectors[0], twoVectors[1], clippedTriangle.color ) );
+        keepTriangles.push_back( Triangle( intersections[1], twoVectors[0], twoVectors[1], clippedTriangle.color ) );
+        cout << " 2 new triangles! \n";
+    }
+    
+    // // CASE 2 
+    // /*
+    //     If 2 vertices are out, just join the intersection point to create new triangle. 
+
+    // */
+    if(outIndices.size() == 2){
+        vector<vec4> intersections;
+        vector<vec4> twoVectors;
+
+        for(int j = 0; j < 3;j++){
+            if(j != outIndices[0]  && j != outIndices[1] ){
+                twoVectors.push_back(clippedTriangle.vertices[outIndices[0]].position);
+                twoVectors.push_back(clippedTriangle.vertices[outIndices[1]].position);
+                intersections.push_back(intersection(clippedTriangle.vertices[j].position,clippedTriangle.vertices[outIndices[0]].position,0));
+                intersections.push_back(intersection(clippedTriangle.vertices[j].position,clippedTriangle.vertices[outIndices[1]].position,0));
+            }
+        }          
+       
+        keepTriangles.push_back( Triangle( intersections[0], twoVectors[0], twoVectors[1], clippedTriangle.color ) );
+        keepTriangles.push_back( Triangle( intersections[1], twoVectors[0], twoVectors[1], clippedTriangle.color ) );
+        cout << " 2 new triangles! \n";
+    }
+}
+
+void clipRight(ClippedTriangle clippedTriangle,vector<Triangle> &keepTriangles){
+
+}
+
+void clipLeft(ClippedTriangle clippedTriangle,vector<Triangle> &keepTriangles){
+
+}
+void clipBottom(ClippedTriangle clippedTriangle,vector<Triangle> &keepTriangles){
+
+}
+vector<int> numVerticesOut(ClippedTriangle triangle, int plane){
+    vector<int> indices;
+    for(int i = 0; i < 3; i++){
+        if((triangle.vertices[i].outcode & plane) == plane ) indices.push_back(i);
+
+    }
+    return indices;
+}
+bool onScreen(Vertex v ){
+    bool onScreen = false;
+    if(v.outcode == 0){
+        onScreen  = true;
+    }
+    // float xMax = clipSpace.w*(SCREEN_WIDTH/2);
+    // float yMax = clipSpace.w*(SCREEN_HEIGHT/2);
+    
+    // // float xMax = clipSpace.w*((SCREEN_WIDTH/2)*(f+1));
+    // // float yMax = clipSpace.w*((SCREEN_HEIGHT/2)*(f+1));
+
+    // if( clipSpace.x >= xMax*-1  &&  
+    //     clipSpace.x <= xMax     &&
+    //     clipSpace.y >= yMax*-1  &&  
+    //     clipSpace.y <= yMax ){
+    //     onScreen = true;
+    // }
     return onScreen;
 }
+
 // Changes the coordinate from world space to clip space
 vec4 toClipSpace(vec4 worldSpace){
     vec4 clipSpace;
+    glm::mat4 R;
+    setRotationMat(R,yaw);
+    clipSpace = R*clipSpace;
     clipSpace = worldSpace - cameraPos;
     clipSpace.w = clipSpace.z/f;
+    if(clipSpace.w <= 0) {
+        cout << "HELLLOOO THERE";
+        clipSpace.w = 0.00001f;
+    }
     // clipSpace -= cameraPos;
     return clipSpace;
-
 }
 /*Place your drawing here*/
 void Draw(screen* screen){
@@ -136,9 +258,7 @@ void Draw(screen* screen){
     vector<Triangle> keepTriangles;
     vector<ClippedTriangle> clippedTriangles;
 
-    
 
-    
     // ivec2 delta = glm::abs( a - b );
     // int pixels = glm::max( delta.x, delta.y ) + 1;
     
@@ -148,23 +268,28 @@ void Draw(screen* screen){
     // boolean to add triangles that do not need to be clipped
     bool addTriangle;
     int offScreenCount = 0;
+
+
     
-    // CLIPPING
+    // CLIPPING - Getting rid of the triangles that are off of the screen
     for(int i=0; i<triangles.size(); i++){
-       
 
         addTriangle = true;
         triangleVerts[0].position = triangles[i].v0;
         triangleVerts[1].position = triangles[i].v1;
         triangleVerts[2].position = triangles[i].v2;
+
         //converts the coordinates of the vertices of each triangle from world space to clip space
         for(int j = 0; j <3;j++){
-            clipPositions[j] = toClipSpace(triangleVerts[j].position); 
-            if(!onScreen(clipPositions[j])){
+            triangleVerts[j].clipSpace = toClipSpace(triangleVerts[j].position);
+            computeOutcode(triangleVerts[j]);
+            // clipPositions[j] = toClipSpace(triangleVerts[j].position); 
+            if(!onScreen(triangleVerts[j])){
                 triangleVerts[j].onScreen = false;
+                
                 addTriangle = false;
                 offScreenCount++;
-            } else{
+            }else{
                 triangleVerts[j].onScreen = true;
             }
         }
@@ -184,62 +309,65 @@ void Draw(screen* screen){
         offScreenCount = 0;
 
     }
-
-    
-    
-    // ADDING NEW TRIANGLES
     for(int i = 0; i < clippedTriangles.size();i++){
-        cout << "clippedTriangle no. " << i << " out of " << clippedTriangles.size()-1 << "\n";
-        vector<vec4> intersections;
-        vector<vec4> twoVectors;
+        clipping(clippedTriangles[i],keepTriangles);
+    }
 
-    // CASE 1 
-    /*
-        If there's 1 vertex out, then you gotta take the 2 intersection points and 2 original vertices and create 2 new triangles
+    
+    
+    // // ADDING NEW TRIANGLES
+    // for(int i = 0; i < clippedTriangles.size();i++){
+    //     cout << "clippedTriangle no. " << i << " out of " << clippedTriangles.size()-1 << "\n";
+    //     vector<vec4> intersections;
+    //     vector<vec4> twoVectors;
 
-    */
-        if(clippedTriangles[i].offScreenCount == 1){
-            int offScreenIndex = 0;
-            cout << " here1 \n";
-            for(int j = 0; j < 3;j++) if(!clippedTriangles[i].vertices[j].onScreen) offScreenIndex = j;;
-            for(int j = 0; j < 3;j++){
-                if(j != offScreenIndex){
-                    twoVectors.push_back(clippedTriangles[i].vertices[j].position);
-                    intersections.push_back(intersection(clippedTriangles[i].vertices[j].position,clippedTriangles[i].vertices[offScreenIndex].position));
+    // // CASE 1 
+    // /*
+    //     If there's 1 vertex out, then you gotta take the 2 intersection points and 2 original vertices and create 2 new triangles
 
-                }
-            }          
-            cout << " here2 \n";
-            keepTriangles.push_back( Triangle( intersections[0], twoVectors[0], twoVectors[1], clippedTriangles[i].color ) );
-            keepTriangles.push_back( Triangle( intersections[1], twoVectors[0], twoVectors[1], clippedTriangles[i].color ) );
-            cout << " 2 new triangles! \n";
-        }
+    // */
+    //     if(clippedTriangles[i].offScreenCount == 1){
+    //         int offScreenIndex = 0;
+    //         cout << " here1 \n";
+    //         for(int j = 0; j < 3;j++) if(!clippedTriangles[i].vertices[j].onScreen) offScreenIndex = j;;
+    //         for(int j = 0; j < 3;j++){
+    //             if(j != offScreenIndex){
+    //                 twoVectors.push_back(clippedTriangles[i].vertices[j].position);
+    //                 intersections.push_back(intersection(clippedTriangles[i].vertices[j].position,clippedTriangles[i].vertices[offScreenIndex].position));
+
+    //             }
+    //         }          
+    //         cout << " here2 \n";
+    //         keepTriangles.push_back( Triangle( intersections[0], twoVectors[0], twoVectors[1], clippedTriangles[i].color ) );
+    //         keepTriangles.push_back( Triangle( intersections[1], twoVectors[0], twoVectors[1], clippedTriangles[i].color ) );
+    //         cout << " 2 new triangles! \n";
+    //     }
 
 
 
-    // CASE 2 
-    /*
-        If 2 vertices are out, just join the intersection point to create new triangle. 
+    // // CASE 2 
+    // /*
+    //     If 2 vertices are out, just join the intersection point to create new triangle. 
 
-    */
+    // */
 
-        if(clippedTriangles[i].offScreenCount == 2){
-            int onScreenIndex = 0;
-            cout << " here3 \n";
-            for(int j = 0; j < 3;j++) if(clippedTriangles[i].vertices[j].onScreen) onScreenIndex = j;;
-            for(int j = 0; j < 3;j++){
-                if(j != onScreenIndex){
-                    twoVectors.push_back(clippedTriangles[i].vertices[j].position);
-                    intersections.push_back(intersection(clippedTriangles[i].vertices[onScreenIndex].position,clippedTriangles[i].vertices[j].position));
-                }
-            }
-            cout << " here4 \n";
-            keepTriangles.push_back( Triangle( intersections[0], intersections[1], twoVectors[0], clippedTriangles[i].color ) );
-            cout << " 1 new triangle! \n";
-        }
+    //     if(clippedTriangles[i].offScreenCount == 2){
+    //         int onScreenIndex = 0;
+    //         cout << " here3 \n";
+    //         for(int j = 0; j < 3;j++) if(clippedTriangles[i].vertices[j].onScreen) onScreenIndex = j;;
+    //         for(int j = 0; j < 3;j++){
+    //             if(j != onScreenIndex){
+    //                 twoVectors.push_back(clippedTriangles[i].vertices[j].position);
+    //                 intersections.push_back(intersection(clippedTriangles[i].vertices[onScreenIndex].position,clippedTriangles[i].vertices[j].position));
+    //             }
+    //         }
+    //         cout << " here4 \n";
+    //         keepTriangles.push_back( Triangle( intersections[0], intersections[1], twoVectors[0], clippedTriangles[i].color ) );
+    //         cout << " 1 new triangle! \n";
+    //     }
 
         
-    }
+    // }
     
 
     
@@ -282,18 +410,36 @@ void Draw(screen* screen){
         
     }
 }
-vec4 intersection(vec4 q1, vec4 q2){
+vec4 intersection(vec4 q1, vec4 q2,int plane){
     vec4 c1,c2;
 
 
     c1 = toClipSpace(q1);
     c2 = toClipSpace(q2);
-    float t = ( c1.w - (SCREEN_WIDTH/2)*c1.x )/( ( c1.w - (SCREEN_WIDTH/2)*c1.x  ) - ( c2.w - (SCREEN_WIDTH/2)*c2.x ) );
+    float t;
+    // TOP
+    // BOTTOM
+    switch(plane){
+        case 0:
+            t = ( c1.w - (2/SCREEN_HEIGHT)*c1.x )/( ( c1.w - (2/SCREEN_HEIGHT)*c1.x  ) - ( c2.w - (2/SCREEN_HEIGHT)*c2.x ) );
+            break;
+        case 1:
+            t = ( c1.w - (-2/SCREEN_HEIGHT)*c1.x )/( ( c1.w - (-2/SCREEN_HEIGHT)*c1.x  ) - ( c2.w - (-2/SCREEN_HEIGHT)*c2.x ) );
+            break;
+        case 2:
+            t = ( c1.w - (2/SCREEN_WIDTH)*c1.x )/( ( c1.w - (2/SCREEN_WIDTH)*c1.x  ) - ( c2.w - (2/SCREEN_WIDTH)*c2.x ) );
+            break;
+        case 3:
+            t = ( c1.w - (-2/SCREEN_WIDTH)*c1.x )/( ( c1.w - (-2/SCREEN_WIDTH)*c1.x  ) - ( c2.w - (-2/SCREEN_WIDTH)*c2.x ) );
+            break;
+
+    }
+    
     // float t = ( c1.w - (SCREEN_WIDTH/2)*c1.y )/( ( c1.w - (SCREEN_WIDTH/2)*c1.y  ) - ( c2.w - (SCREEN_WIDTH/2)*c2.y ) );
     vec4 intersection = (c1 + t*(c2 - c1)) + cameraPos;
     cout << "Intersection: ";
     cout << "( " << intersection.x << "," << intersection.y <<  "," << intersection.z << "," << intersection.w << ")" << "\n";
-    return intersection;
+    return intersection; 
 
 
 
@@ -882,7 +1028,7 @@ bool Update(){
                         // vec4 forward( R[2][0], R[2][1], R[2][2], 1 );
                         // cameraPos = forward * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
                         cameraPos[2] = cameraPos[2] + change;
-                        yaw += change;
+                        // yaw += change;
                         break;
                     }
                     case SDLK_DOWN:
@@ -892,7 +1038,7 @@ bool Update(){
                         // vec4 down(    R[1][0], R[1][1], R[1][2], 1 );
                         // cameraPos = down * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
                         cameraPos[2] = cameraPos[2] - change;
-                        yaw -= change;
+                        // yaw -= change;
                         break;
                     }
                     case SDLK_LEFT:
@@ -902,7 +1048,7 @@ bool Update(){
                         // vec4 left(   R[0][0], R[0][1], R[0][2], 1 );
                         // cameraPos = left * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
                         cameraPos[0] = cameraPos[0] - change;
-                        yaw -= change;
+                        // yaw -= change;
                         break;
                     }
                     case SDLK_RIGHT:
@@ -912,7 +1058,7 @@ bool Update(){
                         // vec4 right(   R[0][0], R[0][1], R[0][2], 1 );
                         // cameraPos = right * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
                         cameraPos[0] = cameraPos[0] + change;
-                        yaw += change;
+                        // yaw += change;
                         break;
                     }
                     case SDLK_ESCAPE:
