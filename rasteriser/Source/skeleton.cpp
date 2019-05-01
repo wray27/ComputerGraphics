@@ -455,101 +455,16 @@ void Draw(screen* screen){
         clipping(clippedTriangles[i],keepTriangles);
     }
 
-    
-    
-    // // ADDING NEW TRIANGLES
-    // for(int i = 0; i < clippedTriangles.size();i++){
-    //     cout << "clippedTriangle no. " << i << " out of " << clippedTriangles.size()-1 << "\n";
-    //     vector<vec4> intersections;
-    //     vector<vec4> twoVectors;
-
-    // // CASE 1 
-    // /*
-    //     If there's 1 vertex out, then you gotta take the 2 intersection points and 2 original vertices and create 2 new triangles
-
-    // */
-    //     if(clippedTriangles[i].offScreenCount == 1){
-    //         int offScreenIndex = 0;
-    //         cout << " here1 \n";
-    //         for(int j = 0; j < 3;j++) if(!clippedTriangles[i].vertices[j].onScreen) offScreenIndex = j;;
-    //         for(int j = 0; j < 3;j++){
-    //             if(j != offScreenIndex){
-    //                 twoVectors.push_back(clippedTriangles[i].vertices[j].position);
-    //                 intersections.push_back(intersection(clippedTriangles[i].vertices[j].position,clippedTriangles[i].vertices[offScreenIndex].position));
-
-    //             }
-    //         }          
-    //         cout << " here2 \n";
-    //         keepTriangles.push_back( Triangle( intersections[0], twoVectors[0], twoVectors[1], clippedTriangles[i].color ) );
-    //         keepTriangles.push_back( Triangle( intersections[1], twoVectors[0], twoVectors[1], clippedTriangles[i].color ) );
-    //         cout << " 2 new triangles! \n";
-    //     }
-
-
-
-    // // CASE 2 
-    // /*
-    //     If 2 vertices are out, just join the intersection point to create new triangle. 
-
-    // */
-
-    //     if(clippedTriangles[i].offScreenCount == 2){
-    //         int onScreenIndex = 0;
-    //         cout << " here3 \n";
-    //         for(int j = 0; j < 3;j++) if(clippedTriangles[i].vertices[j].onScreen) onScreenIndex = j;;
-    //         for(int j = 0; j < 3;j++){
-    //             if(j != onScreenIndex){
-    //                 twoVectors.push_back(clippedTriangles[i].vertices[j].position);
-    //                 intersections.push_back(intersection(clippedTriangles[i].vertices[onScreenIndex].position,clippedTriangles[i].vertices[j].position));
-    //             }
-    //         }
-    //         cout << " here4 \n";
-    //         keepTriangles.push_back( Triangle( intersections[0], intersections[1], twoVectors[0], clippedTriangles[i].color ) );
-    //         cout << " 1 new triangle! \n";
-    //     }
-
-        
-    // }
-    
-
-    
-
     vector<Vertex> keepTriangleVerts(3);
     
     for(int i=0; i<keepTriangles.size(); i++)
     {  
-
-        // cout << "okay \n";
         currentReflectance = keepTriangles[i].color;
         currentNormal = keepTriangles[i].normal;
-        
         keepTriangleVerts[0].position = keepTriangles[i].v0;
         keepTriangleVerts[1].position = keepTriangles[i].v1;
         keepTriangleVerts[2].position = keepTriangles[i].v2;
-        // cout << " --okay \n";
-
-        // power = light(triangleVerts[0]);
-        // reflectance = (power + indirectLightPowerPerArea) * currentColor;
-        // triangleVerts[0].reflectance = currentColor ;
-        // triangleVerts[0].normal = triangles[i].normal;
-
-        // power = light(triangleVerts[1]);
-        // reflectance = (power + indirectLightPowerPerArea) * currentColor;
-        // triangleVerts[1].reflectance = currentColor ;
-        // triangleVerts[1].normal = triangles[i].normal;
-
-
-        // power = light(triangleVerts[2]);
-        // reflectance = (power + indirectLightPowerPerArea) * currentColor;
-        // triangleVerts[2].reflectance = currentColor;
-        // triangleVerts[2].normal = triangles[i].normal;
-
-        
-
-        // DrawPolygonEdges(triangleVerts,screen);
         DrawPolygon(keepTriangleVerts,screen);
-        // cout << " --poly drawn \n";
-        
     }
 }
 vec4 intersection(vec4 q1, vec4 q2,int plane){
@@ -1202,7 +1117,7 @@ bool Update(){
                         // vec4 right(   R[0][0], R[0][1], R[0][2], 1 );
                         // cameraPos = right * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
                         cameraPos[0] = cameraPos[0] + change;
-                        // yaw += change;
+                        //yaw += change;
                         break;
                     }
                     case SDLK_ESCAPE:
