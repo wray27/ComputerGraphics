@@ -95,10 +95,8 @@ void DrawPolygon( const vector<Vertex>& vertices,screen* screen);
 vec4 toClipSpace(vec4 worldSpace);
 bool onScreen(vec4 clipSpace);
 vec4 intersection(vec4 q1,vec4 q2,int plane);
-void clipAxis(vector<ClippedTriangle> &triangles,int plane);
-
-
-void clipping(ClippedTriangle clippedTriangle, vector<Triangle> &keepTriangles);
+vector<ClippedTriangle> clipAxis(vector<ClippedTriangle> triangles,int plane);
+vector<Triangle> clipping(ClippedTriangle clippedTriangle);
 void computeOutcode(Vertex &v);
 vector<int> numVerticesOut(ClippedTriangle triangle, int plane);
 
@@ -130,28 +128,29 @@ void computeOutcode(Vertex &v){
     if (v.clipSpace.x < -xMax) v.outcode |= 1;
 }
 
-void clipping(ClippedTriangle clippedTriangle, vector<Triangle> &keepTriangles){
-    cout << "CLIPPPING A Triangle\n";
-
+vector<Triangle>  clipping(ClippedTriangle clippedTriangle){
+    cout << "CLIPPING A Triangle\n";
+    vector<Triangle> keepTriangles;
     vector<ClippedTriangle> newTriangles;
     newTriangles.push_back(clippedTriangle);
 
-    for(int i =0; i < 3;i++){
-            if( (clippedTriangle.vertices[i].outcode &  TOP) == 0 ) clipAxis(newTriangles,TOP);
-            if( (clippedTriangle.vertices[i].outcode &  BOTTOM) == 0 ) clipAxis(newTriangles,BOTTOM);
-            if( (clippedTriangle.vertices[i].outcode &  RIGHT) == 0 ) clipAxis(newTriangles,RIGHT);
-            if( (clippedTriangle.vertices[i].outcode &  LEFT) == 0 ) clipAxis(newTriangles,LEFT);
-    }
+    
+    newTriangles = clipAxis(newTriangles,TOP);
+    newTriangles = clipAxis(newTriangles,BOTTOM);
+    newTriangles  = clipAxis(newTriangles,RIGHT);
+    newTriangles  = clipAxis(newTriangles,LEFT);
+   
 
     for(int i = 0; i < newTriangles.size();i++){
       cout << "Adding Triangle...\n";
-
       keepTriangles.push_back(  Triangle(newTriangles[i].vertices[0].position,newTriangles[i].vertices[1].position,newTriangles[i].vertices[2].position,newTriangles[i].color));
       cout << "Triangle added.\n";
     }
+    return keepTriangles;
 }
-void clipAxis(vector<ClippedTriangle>& triangles,int plane){
-    vector<ClippedTriangle> newTriangles = triangles;
+vector<ClippedTriangle> clipAxis(vector<ClippedTriangle> triangles,int plane){
+    vector<ClippedTriangle> newTriangles; 
+    
     switch(plane){
       case TOP:
         cout << "CLIPPING TOP \n";
@@ -166,18 +165,26 @@ void clipAxis(vector<ClippedTriangle>& triangles,int plane){
         cout << "CLIPPING LEFT \n";
         break;
     }
-    for (int i = 0; i < newTriangles.size(); i++) {
-      ClippedTriangle clippedTriangle = newTriangles[i];
+    for (int i = 0; i < triangles.size(); i++) {
+      ClippedTriangle clippedTriangle = triangles[i];
       vec3 colour = clippedTriangle.color;
       vector<int> outIndices;
       outIndices = numVerticesOut(clippedTriangle,plane);
+      // for(int j = 0; j < outIndices.size();j++){
+      //   cout << "Number " << j <<"Out Index: " << outIndices[j] << endl;
+      // }
+      
+      // cout << "Out Index2: " << outIndices[1] << endl;
+      if(outIndices.size() == 0){
+        newTriangles.push_back(clippedTriangle);
+      }
       // // CASE 1
       // /*
       //     If there's 1 vertex out, then you gotta take the 2 intersection points and 2 original vertices and create 2 new triangles
 
       // */
 
-      if(outIndices.size() == 1){
+      else if(outIndices.size() == 1){
           vector<vec4> intersections;
           vector<vec4> twoVectors;
 
@@ -188,19 +195,19 @@ void clipAxis(vector<ClippedTriangle>& triangles,int plane){
               }
           }
 
-          triangles.erase(triangles.begin()+ i);
+          
           // new triangle 1
           vector<vec4> positions;
           positions.push_back(intersections[0]);
           positions.push_back(twoVectors[0]);
           positions.push_back(twoVectors[1]);
-          triangles.push_back( createClippedTriangle(positions,colour));
+          newTriangles.push_back( createClippedTriangle(positions,colour));
           // new triangle 2
           vector<vec4> positions2;
           positions.push_back(intersections[1]);
           positions.push_back(twoVectors[0]);
           positions.push_back(twoVectors[1]);
-          triangles.push_back( createClippedTriangle(positions,colour));
+          newTriangles.push_back( createClippedTriangle(positions,colour));
 
           cout << " 2 new triangles! \n";
       }
@@ -210,7 +217,7 @@ void clipAxis(vector<ClippedTriangle>& triangles,int plane){
       //     If 2 vertices are out, just join the intersection point to create new triangle.
 
       // */
-      if(outIndices.size() == 2){
+      else if(outIndices.size() == 2){
           vector<vec4> intersections;
           vector<vec4> twoVectors;
           int inIndex =0;
@@ -225,19 +232,21 @@ void clipAxis(vector<ClippedTriangle>& triangles,int plane){
           }
 
 
-          triangles.erase(newTriangles.begin()+ i);
+          
           vec4 v = clippedTriangle.vertices[inIndex].position;
           vector<vec4> positions;
           positions.push_back(intersections[0]);
           positions.push_back(intersections[1]);
           positions.push_back(v);
 
-          triangles.push_back( createClippedTriangle(positions,colour));
+          newTriangles.push_back( createClippedTriangle(positions,colour));
 
           cout << " 1 new triangles! \n";
       }
 
     }
+    cout << "No. Triangles " << newTriangles.size() << endl;
+    return newTriangles;
 
 }
 ClippedTriangle createClippedTriangle(vector<vec4> positions, vec3 colour){
@@ -257,9 +266,16 @@ ClippedTriangle createClippedTriangle(vector<vec4> positions, vec3 colour){
 vector<int> numVerticesOut(ClippedTriangle triangle, int plane){
     vector<int> indices;
     for(int i = 0; i < 3; i++){
-        if((triangle.vertices[i].outcode & plane) == plane ) indices.push_back(i);
+        cout << "Vertex " << i << " Outcode " << triangle.vertices[i].outcode << endl;
+        if((triangle.vertices[i].outcode & plane) == plane ){
+            indices.push_back(i); 
+        } 
 
     }
+    for(int j = 0; j < indices.size();j++){
+        cout << "Number " << j <<"Out Index: " << indices[j] << endl;
+    }
+
     return indices;
 }
 bool onScreen(Vertex v ){
@@ -267,18 +283,7 @@ bool onScreen(Vertex v ){
     if(v.outcode == 0){
         onScreen  = true;
     }
-    // float xMax = clipSpace.w*(SCREEN_WIDTH/2);
-    // float yMax = clipSpace.w*(SCREEN_HEIGHT/2);
 
-    // // float xMax = clipSpace.w*((SCREEN_WIDTH/2)*(f+1));
-    // // float yMax = clipSpace.w*((SCREEN_HEIGHT/2)*(f+1));
-
-    // if( clipSpace.x >= xMax*-1  &&
-    //     clipSpace.x <= xMax     &&
-    //     clipSpace.y >= yMax*-1  &&
-    //     clipSpace.y <= yMax ){
-    //     onScreen = true;
-    // }
     return onScreen;
 }
 // Changes the coordinate from world space to clip space
@@ -309,6 +314,7 @@ void Draw(screen* screen){
     vector<Vertex> triangleVerts(3);
 
     vector<Triangle> keepTriangles;
+    vector<Triangle> newTriangles;
     vector<ClippedTriangle> clippedTriangles;
 
     // boolean to add triangles that do not need to be clipped
@@ -345,21 +351,33 @@ void Draw(screen* screen){
         }
     }
     cout << "No. of Triangles Clipped: " << clippedTriangles.size() << "\n";
+
     for(int i = 0; i < clippedTriangles.size();i++){
-        clipping(clippedTriangles[i],keepTriangles);
+        newTriangles = clipping(clippedTriangles[i]);
         cout << "Done " << i << endl;
     }
+    for(int i = 0; i < newTriangles.size();i++){
+        keepTriangles.push_back(newTriangles[i]);   
+    }
+
     //Draws the keep triangles
     vector<Vertex> keepTriangleVerts(3);
+    cout << "Number of Triangles  " << keepTriangles.size() << endl;
     for(int i=0; i<keepTriangles.size(); i++)
     {
         cout << "Computing No. " << i << endl;
         currentReflectance = keepTriangles[i].color;
+        cout << "HERE\n";
         currentNormal = keepTriangles[i].normal;
+        cout << "HERE\n";
         keepTriangleVerts[0].position = keepTriangles[i].v0;
+        cout << "HERE\n";
         keepTriangleVerts[1].position = keepTriangles[i].v1;
+        cout << "HERE\n";
         keepTriangleVerts[2].position = keepTriangles[i].v2;
+        cout << "HERE\n";
         DrawPolygon(keepTriangleVerts,screen);
+        cout << "HERE\n";
     }
 }
 vec4 intersection(vec4 q1, vec4 q2,int plane){
