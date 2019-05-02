@@ -15,6 +15,11 @@ using glm::vec2;
 
 SDL_Event event;
 
+#define TOP 8
+#define BOTTOM 4
+#define RIGHT 2
+#define LEFT 1
+
 
 
 #define SCREEN_WIDTH 256
@@ -37,11 +42,22 @@ struct Pixel
        vec4 pos3d;
 };
 
+
 struct Vertex
 {
     vec4 position;
+    bool onScreen;
+    vec4 clipSpace;
+    unsigned int outcode ;
+
     // vec4 normal;
     // vec3 reflectance;
+};
+struct ClippedTriangle
+{
+       vector<Vertex> vertices;
+       int offScreenCount;
+       vec3 color;
 };
 
 vec4 currentNormal;
@@ -49,11 +65,17 @@ vec3 currentReflectance;
 // focal length of the camera
 float f = SCREEN_WIDTH;
 
+
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
 
 bool Update();
 void Draw(screen* screen);
+
+
+
+
+
 void VertexShader( const vec4& v, ivec2& p );
 void VertexShader( const Vertex& v, Pixel& p);
 void Interpolate( vec2 a, vec2 b, vector<ivec2>& result );
@@ -66,10 +88,17 @@ void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPi
 void testComputePolygonRows();
 void DrawPolygonRows( const vector<ivec2>& leftPixels, const vector<ivec2>& rightPixels,vec3 color );
 void DrawPolygonRows( const vector<Pixel>& leftPixels,const vector<Pixel>& rightPixels,screen* screen );
+ClippedTriangle createClippedTriangle(vector<vec4> positions, vec3 colour);
 void PixelShader( const Pixel& p,screen* screen);
 vec3 light( const vec4& v );
 void DrawPolygon( const vector<Vertex>& vertices,screen* screen);
-
+vec4 toClipSpace(vec4 worldSpace);
+bool onScreen(vec4 clipSpace);
+vec4 intersection(vec4 q1,vec4 q2,int plane);
+vector<ClippedTriangle> clipAxis(vector<ClippedTriangle> triangles,int plane);
+vector<Triangle> clipping(ClippedTriangle clippedTriangle);
+void computeOutcode(Vertex &v);
+vector<int> numVerticesOut(ClippedTriangle triangle, int plane);
 
 int main( int argc, char* argv[] ){
   // testComputePolygonRows();
@@ -87,61 +116,308 @@ int main( int argc, char* argv[] ){
   KillSDL(screen);
   return 0;
 }
+void computeOutcode(Vertex &v){
+    float xMax = v.clipSpace.w*(SCREEN_WIDTH/2);
+    float yMax = v.clipSpace.w*(SCREEN_HEIGHT/2);
+
+    v.outcode = 0;
+
+    if (v.clipSpace.y > yMax) v.outcode |= 8;
+    if (v.clipSpace.y < -yMax) v.outcode |= 4;
+    if (v.clipSpace.x > xMax) v.outcode |= 2;
+    if (v.clipSpace.x < -xMax) v.outcode |= 1;
+}
+
+vector<Triangle>  clipping(ClippedTriangle clippedTriangle){
+    // cout << "CLIPPING A Triangle\n";
+    vector<Triangle> keepTriangles;
+    vector<ClippedTriangle> newTriangles;
+    newTriangles.push_back(clippedTriangle);
+
+
+    newTriangles = clipAxis(newTriangles,TOP);
+    newTriangles = clipAxis(newTriangles,BOTTOM);
+    newTriangles  = clipAxis(newTriangles,RIGHT);
+    newTriangles  = clipAxis(newTriangles,LEFT);
+
+
+    for(int i = 0; i < newTriangles.size();i++){
+      // cout << "Adding Triangle...\n";
+      keepTriangles.push_back(  Triangle(newTriangles[i].vertices[0].position,newTriangles[i].vertices[1].position,newTriangles[i].vertices[2].position,newTriangles[i].color));
+      // cout << "Triangle added.\n";
+    }
+    cout << "No. Triangles Addded " << keepTriangles.size() << endl;
+    return keepTriangles;
+}
+vector<ClippedTriangle> clipAxis(vector<ClippedTriangle> triangles,int plane){
+    vector<ClippedTriangle> newTriangles;
+
+    switch(plane){
+      case TOP:
+        // cout << "CLIPPING TOP \n";
+        break;
+      case BOTTOM:
+        // cout << "CLIPPING BOTTOM \n";
+        break;
+      case RIGHT:
+        // cout << "CLIPPING RIGHT \n";
+        break;
+      case LEFT:
+        // cout << "CLIPPING LEFT \n";
+        break;
+    }
+    for (int i = 0; i < triangles.size(); i++) {
+      ClippedTriangle clippedTriangle = triangles[i];
+      vec3 colour = clippedTriangle.color;
+      vector<int> outIndices;
+      outIndices = numVerticesOut(clippedTriangle,plane);
+      // for(int j = 0; j < outIndices.size();j++){
+      //   cout << "Number " << j <<"Out Index: " << outIndices[j] << endl;
+      // }
+
+      // cout << "Out Index2: " << outIndices[1] << endl;
+      if(outIndices.size() == 0){
+        newTriangles.push_back(clippedTriangle);
+      }
+      // // CASE 1
+      // /*
+      //     If there's 1 vertex out, then you gotta take the 2 intersection points and 2 original vertices and create 2 new triangles
+
+      // */
+
+      else if(outIndices.size() == 1){
+          vector<vec4> intersections;
+          vector<vec4> twoVectors;
+
+          for(int j = 0; j < 3;j++){
+              if(j != outIndices[0]){
+                  twoVectors.push_back(clippedTriangle.vertices[j].position);
+                  intersections.push_back(intersection(clippedTriangle.vertices[j].position,clippedTriangle.vertices[outIndices[0]].position,plane));
+              }
+          }
+
+
+          // new triangle 1
+          vector<vec4> positions;
+          positions.push_back(intersections[1]);
+          positions.push_back(twoVectors[0]);
+          positions.push_back(twoVectors[1]);
+          newTriangles.push_back( createClippedTriangle(positions,colour ));
+          // new triangle 2
+          vector<vec4> positions2;
+          positions2.push_back(intersections[0]);
+          positions2.push_back(intersections[1]);
+          positions2.push_back(twoVectors[0]);
+          newTriangles.push_back( createClippedTriangle(positions2, colour));
+
+          // cout << " 2 new triangles! \n";
+      }
+
+      // // CASE 2
+      // /*
+      //     If 2 vertices are out, just join the intersection point to create new triangle.
+
+      // */
+      else if(outIndices.size() == 2){
+          vector<vec4> intersections;
+          vector<vec4> twoVectors;
+          int inIndex =0;
+          for(int j = 0; j < 3;j++){
+              if(j != outIndices[0]  && j != outIndices[1] ){
+                  inIndex = j;
+                  twoVectors.push_back(clippedTriangle.vertices[outIndices[0]].position);
+                  twoVectors.push_back(clippedTriangle.vertices[outIndices[1]].position);
+                  intersections.push_back(intersection(clippedTriangle.vertices[j].position,clippedTriangle.vertices[outIndices[0]].position,plane));
+                  intersections.push_back(intersection(clippedTriangle.vertices[j].position,clippedTriangle.vertices[outIndices[1]].position,plane));
+              }
+          }
+
+
+
+          vec4 v = clippedTriangle.vertices[inIndex].position;
+          vector<vec4> positions;
+          positions.push_back(intersections[0]);
+          positions.push_back(intersections[1]);
+          positions.push_back(v);
+
+          newTriangles.push_back( createClippedTriangle(positions,colour));
+
+          // cout << " 1 new triangles! \n";
+      }
+
+    }
+
+    return newTriangles;
+
+}
+ClippedTriangle createClippedTriangle(vector<vec4> positions, vec3 colour){
+  ClippedTriangle newTri;
+  vector<Vertex> vertices;
+  for(int i = 0; i< 3;i++){
+    Vertex tempVertex;
+    tempVertex.position = positions[i];
+    computeOutcode(tempVertex);
+    // tempVertex.onScreen = onScreen(tempVertex.position);
+    vertices.push_back(tempVertex);
+  }
+  newTri.vertices = vertices;
+  newTri.color = colour;
+  return newTri;
+}
+vector<int> numVerticesOut(ClippedTriangle triangle, int plane){
+    vector<int> indices;
+    for(int i = 0; i < 3; i++){
+        // cout << "Vertex " << i << " Outcode " << triangle.vertices[i].outcode << endl;
+        if((triangle.vertices[i].outcode & plane) == plane ){
+            indices.push_back(i);
+        }
+
+    }
+    // for(int j = 0; j < indices.size();j++){
+    //     cout << "Number " << j <<"Out Index: " << indices[j] << endl;
+    // }
+
+    return indices;
+}
+bool onScreen(Vertex v ){
+    bool onScreen = false;
+    if(v.outcode == 0){
+        onScreen  = true;
+    }
+
+    return onScreen;
+}
+// Changes the coordinate from world space to clip space
+vec4 toClipSpace(vec4 worldSpace){
+    vec4 clipSpace;
+    glm::mat4 R;
+    setRotationMat(R,yaw);
+    clipSpace = R*clipSpace;
+    clipSpace = worldSpace - cameraPos;
+    clipSpace.w = clipSpace.z/f;
+    if(clipSpace.w <= 0) {
+        cout << "HELLLOOO THERE";
+        clipSpace.w = 0.00001f;
+    }
+    // clipSpace -= cameraPos;
+    return clipSpace;
+}
 /*Place your drawing here*/
 void Draw(screen* screen){
     /* Clear buffer */
     memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
-    
-    
     // clears the depth buffer
     for( int y=0; y<SCREEN_HEIGHT; ++y )
         for( int x=0; x<SCREEN_WIDTH; ++x )
             depthBuffer[y][x] = 0;
-   
+
     vec3 colour(1.0,1.0,1.0);
     vector<Vertex> triangleVerts(3);
 
-    
-   
-    
-    // ivec2 delta = glm::abs( a - b );
-    // int pixels = glm::max( delta.x, delta.y ) + 1;
-    
-    // vector<ivec2> line( pixels );
-    // Interpolate( a, b, line );
-    
-    for(int i=0; i<triangles.size(); i++)
-    {  
-        currentReflectance = triangles[i].color;
-        currentNormal = triangles[i].normal;
-        
+    vector<Triangle> keepTriangles;
+    vector<Triangle> newTriangles;
+    vector<ClippedTriangle> clippedTriangles;
+
+    // boolean to add triangles that do not need to be clipped
+    bool addTriangle;
+    // CLIPPING - Getting rid of the triangles that are off of the screen
+    for(int i=0; i<triangles.size(); i++){
+
+        addTriangle = true;
         triangleVerts[0].position = triangles[i].v0;
         triangleVerts[1].position = triangles[i].v1;
         triangleVerts[2].position = triangles[i].v2;
 
-        // power = light(triangleVerts[0]);
-        // reflectance = (power + indirectLightPowerPerArea) * currentColor;
-        // triangleVerts[0].reflectance = currentColor ;
-        // triangleVerts[0].normal = triangles[i].normal;
+        //converts the coordinates of the vertices of each triangle from world space to clip space
+        for(int j = 0; j <3;j++){
+            triangleVerts[j].clipSpace = toClipSpace(triangleVerts[j].position);
+            computeOutcode(triangleVerts[j]);
+            // cout << "Triangle: " << i << " Vertex: " << j << " Outcode: " <<  triangleVerts[j].outcode << "\n";
+            if(!onScreen(triangleVerts[j])){
+                triangleVerts[j].onScreen = false;
+                addTriangle = false;
 
-        
-        // power = light(triangleVerts[1]);
-        // reflectance = (power + indirectLightPowerPerArea) * currentColor;
-        // triangleVerts[1].reflectance = currentColor ;
-        // triangleVerts[1].normal = triangles[i].normal;
+            }else{
+                triangleVerts[j].onScreen = true;
+            }
+        }
 
-
-        // power = light(triangleVerts[2]);
-        // reflectance = (power + indirectLightPowerPerArea) * currentColor;
-        // triangleVerts[2].reflectance = currentColor;
-        // triangleVerts[2].normal = triangles[i].normal;
-
-        
-
-        // DrawPolygonEdges(triangleVerts,screen);
-        DrawPolygon(triangleVerts,screen);
-        
+        if(addTriangle){
+            keepTriangles.push_back(triangles[i]);
+        }else{
+            ClippedTriangle clippedTri;
+            clippedTri.vertices = triangleVerts;
+            //uncomment multiplication to show clipping
+            clippedTri.color = triangles[i].color;// * vec3(0.5f,0.5f,0.5f);
+            clippedTriangles.push_back(clippedTri);
+        }
     }
+    cout << "No. of Triangles Clipped: " << clippedTriangles.size() << "\n" << endl << endl;
+
+    for(int i = 0; i < clippedTriangles.size();i++){
+        newTriangles = clipping(clippedTriangles[i]);
+        cout << "Done " << i << endl;
+        for(int i = 0; i < newTriangles.size();i++){
+            keepTriangles.push_back(newTriangles[i]);
+        }
+    }
+
+
+    //Draws the keep triangles
+    vector<Vertex> keepTriangleVerts(3);
+    cout << "Number of Triangles  " << keepTriangles.size() << endl;
+    for(int i=0; i<keepTriangles.size(); i++)
+    {
+        // cout << "Computing No. " << i << endl;
+        currentReflectance = keepTriangles[i].color;
+        // cout << "HERE\n";
+        currentNormal = keepTriangles[i].normal;
+        // cout << "HERE\n";
+        keepTriangleVerts[0].position = keepTriangles[i].v0;
+        // cout << "HERE\n";
+        keepTriangleVerts[1].position = keepTriangles[i].v1;
+        // cout << "HERE\n";
+        keepTriangleVerts[2].position = keepTriangles[i].v2;
+        // cout << "HERE\n";
+        DrawPolygon(keepTriangleVerts,screen);
+        // cout << "FINISHED DRAWING\n";
+    }
+}
+vec4 intersection(vec4 q1, vec4 q2,int plane){
+    vec4 c1,c2;
+
+
+    c1 = toClipSpace(q1);
+    c2 = toClipSpace(q2);
+    float t = 0;
+    // TOP
+    // BOTTOM
+    // RIGHT
+    // LEFT
+    switch(plane){
+        case 8:
+            t = ( c1.w - ((float)2/SCREEN_HEIGHT)*c1.y )/( ( c1.w - ((float)2/SCREEN_HEIGHT)*c1.y  ) - ( c2.w - ((float)2/SCREEN_HEIGHT)*c2.y ) );
+            break;
+        case 4:
+            t = ( c1.w - ((float)-2/SCREEN_HEIGHT)*c1.y )/( ( c1.w - ((float)-2/SCREEN_HEIGHT)*c1.y  ) - ( c2.w - ((float)-2/SCREEN_HEIGHT)*c2.y ) );
+            break;
+        case 2:
+            t = ( c1.w - ((float)2/SCREEN_WIDTH)*c1.x )/( ( c1.w - ((float)2/SCREEN_WIDTH)*c1.x  ) - ( c2.w - ((float)2/SCREEN_WIDTH)*c2.x ) );
+            break;
+        case 1:
+            t = ( c1.w - ((float)-2/SCREEN_WIDTH)*c1.x )/( ( c1.w - ((float)-2/SCREEN_WIDTH)*c1.x  ) - (c2.w - ((float)-2/SCREEN_WIDTH)*c2.x ) );
+            break;
+
+    }
+
+    // float t = ( c1.w - (SCREEN_WIDTH/2)*c1.y )/( ( c1.w - (SCREEN_WIDTH/2)*c1.y  ) - ( c2.w - (SCREEN_WIDTH/2)*c2.y ) );
+    vec4 intersection = (c1 + t*(c2 - c1)) + cameraPos ;
+    // cout << "Intersection: ";
+    // cout << "( " << intersection.x << "," << intersection.y <<  "," << intersection.z << "," << intersection.w << ")" << "\n";
+    return intersection;
+
+
+
 }
 void PixelShader( const Pixel& p,screen* screen){
     int x = p.x;
@@ -170,16 +446,16 @@ void DrawPolygonEdges( const vector<vec4>& vertices, screen* screen ){
     for( int i=0; i<V; ++i )
     {
         int j = (i+1)%V; // The next vertex
-        
+
         DrawLineSDL( screen, projectedVertices[i], projectedVertices[j], color );
-    } 
+    }
 }
 vec3 light( const vec4& v ){
     vec3 colour = vec3(0.0f,0.0f,0.0f);
 
     //calculatiing the distance from light source - r
     float distance = glm::distance(lightPos,v);
-    
+
     // unit vector describing the direction from the surface point to the light source
     vec4 _r = glm::normalize(lightPos - v);
     // vec3 r = glm::normalize(vec3(_r.x,_r.y,_r.z));
@@ -210,6 +486,7 @@ void VertexShader( const vec4& v, ivec2& p ){
 
 
 
+
     p.x = (f * (temp.x/temp.z)) + (SCREEN_WIDTH /2);
     p.y = (f * (temp.y/temp.z)) + (SCREEN_HEIGHT /2);
 }
@@ -226,7 +503,9 @@ void VertexShader( const Vertex& v, Pixel& p){
     // p.illumination = (power + indirectLightPowerPerArea) * v.reflectance;
     // // cout << "colour val  = " << p.illumination.x;
     // p.illumination = vec3(1.0f,1.0f,1.0f);
-   
+
+
+
 
 
     R = setRotationMat(R,yaw);
@@ -239,8 +518,12 @@ void VertexShader( const Vertex& v, Pixel& p){
     // calculates the inverse of the z coordinate for each pixel - used for depth calculations
     p.zinv = 1 / temp.z;
 
+
+
+
     p.x = (f * (temp.x/temp.z)) + (SCREEN_WIDTH /2);
     p.y = (f * (temp.y/temp.z)) + (SCREEN_HEIGHT /2);
+
 }
 void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels ){
 
@@ -252,7 +535,7 @@ void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPi
         if(vertexPixels[i].y < smallest) smallest = vertexPixels[i].y;
         if(vertexPixels[i].y > largest) largest = vertexPixels[i].y;
     }
-    
+
     int ROWS = largest - smallest +1;
     // cout << ROWS <<endl;
 
@@ -263,42 +546,42 @@ void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPi
     leftPixels.resize(ROWS);
     rightPixels.resize(ROWS);
     // cout << leftPixels.size() <<endl;
-    
 
 
 
-  
+
+
     // 3. Initialize the x-coordinates in leftPixels
     //    to some really large value and the x-coordinates
     //    in rightPixels to some really small value.
-    
+
     // initializes left and right pixels row to contain the smallest and largest
     // x values of the pixels in that row respectively
-    
+
     for( int i=0; i<ROWS; ++i )
     {
         leftPixels[i].x  = +numeric_limits<int>::max();
-        
+
 
 
         rightPixels[i].x = -numeric_limits<int>::max();
-        
+
 
     }
 
     // 4. Loop through all edges of the polygon and use
     //    linear interpolation to find the x-coordinate for
     //    each row it occupies. Update the corresponding
-    // values in rightPixels and leftPixels. 
+    // values in rightPixels and leftPixels.
 
     ivec2 delta;
-    
+
     Pixel a;
     Pixel b;
     int V = vertexPixels.size();
     // vector< vector<ivec2> > edges(V);
-    
-    
+
+
     for( int i=0; i<V; ++i )
     {
         int j = (i+1)%V; // The next vertex
@@ -307,40 +590,40 @@ void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPi
 
         delta.x = glm::abs( a.x - b.x );
         delta.y = glm::abs( a.y - b.y );
-        
+
 
 
         int pixels = glm::max( delta.x, delta.y ) + 1;
-        
+
         // edges[i].resize(pixels);
-        
+
         vector<Pixel> line( pixels );
         Interpolate( a, b, line );
 
 
         for(int p = 0; p < pixels;p++){
             for(int j =0 ; j < ROWS ; j++){
-                
+
                 if(line[p].x < leftPixels[j].x && line[p].y == j + smallest){
                    leftPixels[j].x = line[p].x;
                    leftPixels[j].zinv = line[p].zinv;
                    leftPixels[j].y = smallest + j;
                    leftPixels[j].pos3d = line[p].pos3d;
-                } 
+                }
 
                 if(line[p].x > rightPixels[j].x && line[p].y == j + smallest){
                     rightPixels[j].x = line[p].x;
                     rightPixels[j].zinv = line[p].zinv;
                     rightPixels[j].y = smallest + j;
                     rightPixels[j].pos3d = line[p].pos3d;
-                } 
+                }
 
 
             }
 
         }
-        // edges[i] = line;    
-    } 
+        // edges[i] = line;
+    }
 }
 void ComputePolygonRows(const vector<ivec2>& vertexPixels,vector<ivec2>& leftPixels,  vector<ivec2>& rightPixels ){
 
@@ -352,7 +635,7 @@ void ComputePolygonRows(const vector<ivec2>& vertexPixels,vector<ivec2>& leftPix
         if(vertexPixels[i].y < smallest) smallest = vertexPixels[i].y;
         if(vertexPixels[i].y > largest) largest = vertexPixels[i].y;
     }
-    
+
     int ROWS = largest - smallest +1;
     // cout << ROWS <<endl;
 
@@ -363,18 +646,18 @@ void ComputePolygonRows(const vector<ivec2>& vertexPixels,vector<ivec2>& leftPix
     leftPixels.resize(ROWS);
     rightPixels.resize(ROWS);
     // cout << leftPixels.size() <<endl;
-    
 
 
 
-  
+
+
     // 3. Initialize the x-coordinates in leftPixels
     //    to some really large value and the x-coordinates
     //    in rightPixels to some really small value.
-    
+
     // initializes left and right pixels row to contain the smallest and largest
     // x values of the pixels in that row respectively
-    
+
     for( int i=0; i<ROWS; ++i )
     {
         leftPixels[i].x  = +numeric_limits<int>::max();
@@ -384,16 +667,16 @@ void ComputePolygonRows(const vector<ivec2>& vertexPixels,vector<ivec2>& leftPix
     // 4. Loop through all edges of the polygon and use
     //    linear interpolation to find the x-coordinate for
     //    each row it occupies. Update the corresponding
-    // values in rightPixels and leftPixels. 
+    // values in rightPixels and leftPixels.
 
     ivec2 delta;
-    
+
     ivec2 a;
     ivec2 b;
     int V = vertexPixels.size();
     // vector< vector<ivec2> > edges(V);
-    
-    
+
+
     for( int i=0; i<V; ++i )
     {
         int j = (i+1)%V; // The next vertex
@@ -403,9 +686,9 @@ void ComputePolygonRows(const vector<ivec2>& vertexPixels,vector<ivec2>& leftPix
         delta.x = glm::abs( a.x - b.x );
         delta.y = glm::abs( a.y - b.y );
         int pixels = glm::max( delta.x, delta.y ) + 1;
-        
+
         // edges[i].resize(pixels);
-        
+
         vector<ivec2> line( pixels );
         Interpolate( a, b, line );
 
@@ -414,26 +697,26 @@ void ComputePolygonRows(const vector<ivec2>& vertexPixels,vector<ivec2>& leftPix
             for(int j =0 ; j < ROWS ; j++){
                 if(line[p].x < leftPixels[j].x && line[p].y == j + smallest){
                    leftPixels[j].x = line[p].x;
-                   
+
 
                    leftPixels[j].y = smallest + j;
-                } 
-                
+                }
+
 
                 if(line[p].x > rightPixels[j].x && line[p].y == j + smallest){
                     rightPixels[j].x = line[p].x;
-                    
+
 
                     rightPixels[j].y = smallest + j;
-                } 
+                }
 
 
             }
 
         }
-        // edges[i] = line;    
-    } 
-}      
+        // edges[i] = line;
+    }
+}
 void testComputePolygonRows(){
     vector<ivec2> vertexPixels(3);
     vertexPixels[0] = ivec2(10, 5);
@@ -445,7 +728,7 @@ void testComputePolygonRows(){
     // cout << leftPixels.size() <<endl;
     for( int row=0; row<leftPixels.size(); ++row )
     {
-        
+
         cout << "Start: ("
             << leftPixels[row].x << ","
             << leftPixels[row].y << "). "
@@ -459,7 +742,7 @@ void Interpolate( Pixel a, Pixel b, vector<Pixel>& result ){
     Pixel d;
     int N = result.size();
     float temp = float(max(N-1,1));
-    
+
     vec3 step;
     vec4 posStep;
     c.x = a.x;
@@ -476,7 +759,7 @@ void Interpolate( Pixel a, Pixel b, vector<Pixel>& result ){
 
     c.pos3d.x = c.pos3d.x * c.zinv;
     c.pos3d.y  = c.pos3d.y * c.zinv;
-    
+
     d.pos3d.x = d.pos3d.x * d.zinv;
     d.pos3d.y = d.pos3d.y * d.zinv;
 
@@ -505,7 +788,7 @@ void Interpolate( Pixel a, Pixel b, vector<Pixel>& result ){
        result[i].pos3d.z = currentPos.z;
 
 
-       
+
        current.x += step.x;
        current.y += step.y;
        current.z += step.z;
@@ -527,7 +810,7 @@ void Interpolate( Pixel a, Pixel b, vector<Pixel>& result ){
 void Interpolate( vec2 a, vec2 b, vector<ivec2>& result ){
     int N = result.size();
     float temp = float(max(N-1,1));
-    
+
     vec2 step;
 
     step.x = (b.x - a.x) / temp;
@@ -551,7 +834,7 @@ void DrawLineSDL( screen* screen, ivec2 a, ivec2 b, vec3 color ){
     delta.x = glm::abs( a.x - b.x );
     delta.y = glm::abs( a.y - b.y );
     int pixels = glm::max( delta.x, delta.y ) + 1;
-    
+
     vector<ivec2> line( pixels );
     Interpolate( a, b, line );
     for(int i =0; i < pixels;i ++){
@@ -573,7 +856,7 @@ void DrawPolygonRows( const vector<ivec2>& leftPixels,const vector<ivec2>& right
 void DrawPolygonRows( const vector<Pixel>& leftPixels,const vector<Pixel>& rightPixels,screen* screen ){
     int start;
     int stop;
-  
+
     for(int i = 0; i < leftPixels.size(); i ++){
         start = leftPixels[i].x;
         stop = rightPixels[i].x;
@@ -584,13 +867,13 @@ void DrawPolygonRows( const vector<Pixel>& leftPixels,const vector<Pixel>& right
             if( currrentRow[j].x < 0 || currrentRow[j].x >= SCREEN_WIDTH||leftPixels[i].y < 0 || leftPixels[i].y >=SCREEN_HEIGHT) continue;
             // A new pixel is drawn if the inverse of the z coordinate is larger than the value in the depth buffer
             // if( currrentRow[j].zinv >= depthBuffer[currrentRow[j].x][leftPixels[i].y] ){
-                
+
             //     PutPixelSDL( screen, currrentRow[j].x,currrentRow[j].y, color );
             //     // stores new pixel that is drawn in depth buffer
             //     depthBuffer[currrentRow[j].x][currrentRow[j].y] = currrentRow[j].zinv;
 
-            // }  
-            PixelShader(currrentRow[j],screen);      
+            // }
+            PixelShader(currrentRow[j],screen);
         }
     }
 }
@@ -599,7 +882,7 @@ void DrawPolygon( const vector<Vertex>& vertices,screen* screen){
        vector<Pixel> vertexPixels( V );
        for( int i=0; i<V; ++i )
            VertexShader( vertices[i], vertexPixels[i]);
-      
+
        vector<Pixel> leftPixels;
        vector<Pixel> rightPixels;
        ComputePolygonRows( vertexPixels, leftPixels, rightPixels );
@@ -646,7 +929,7 @@ mat4 setRotationMat(mat4 R, float yaw){
     //Fourth column
     for (int i = 0; i < 3; i++){
         R[i][3] = -cameraPos[i];
-        
+
     }
     // R[0][3] = 1;
     // R[1][3] = 1;
@@ -682,7 +965,7 @@ bool Update(){
             {
                 int key_code = e.key.keysym.sym;
                 switch(key_code)
-                {   
+                {
                     case SDLK_w:
                     {
                         lightPos += forward;
@@ -716,11 +999,11 @@ bool Update(){
                     case SDLK_UP:
                     {
                         /* Move camera forward */
-                        
+
                         // vec4 forward( R[2][0], R[2][1], R[2][2], 1 );
                         // cameraPos = forward * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
                         cameraPos[2] = cameraPos[2] + change;
-                        yaw += change;
+                        // yaw += change;
                         break;
                     }
                     case SDLK_DOWN:
@@ -730,7 +1013,7 @@ bool Update(){
                         // vec4 down(    R[1][0], R[1][1], R[1][2], 1 );
                         // cameraPos = down * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
                         cameraPos[2] = cameraPos[2] - change;
-                        yaw -= change;
+                        // yaw -= change;
                         break;
                     }
                     case SDLK_LEFT:
@@ -740,7 +1023,7 @@ bool Update(){
                         // vec4 left(   R[0][0], R[0][1], R[0][2], 1 );
                         // cameraPos = left * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
                         cameraPos[0] = cameraPos[0] - change;
-                        yaw -= change;
+                        // yaw -= change;
                         break;
                     }
                     case SDLK_RIGHT:
@@ -750,7 +1033,7 @@ bool Update(){
                         // vec4 right(   R[0][0], R[0][1], R[0][2], 1 );
                         // cameraPos = right * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
                         cameraPos[0] = cameraPos[0] + change;
-                        yaw += change;
+                        //yaw += change;
                         break;
                     }
                     case SDLK_ESCAPE:
@@ -761,7 +1044,7 @@ bool Update(){
                         // /* Move camera quit */
                         // return false;
                 }
-            }  
+            }
         }
         return true;
     }
