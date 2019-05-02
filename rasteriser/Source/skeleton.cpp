@@ -199,16 +199,16 @@ vector<ClippedTriangle> clipAxis(vector<ClippedTriangle> triangles,int plane){
 
           // new triangle 1
           vector<vec4> positions;
-          positions.push_back(intersections[0]);
-          positions.push_back(twoVectors[0]);
-          positions.push_back(twoVectors[1]);
-          newTriangles.push_back( createClippedTriangle(positions,colour));
-          // new triangle 2
-          vector<vec4> positions2;
           positions.push_back(intersections[1]);
           positions.push_back(twoVectors[0]);
           positions.push_back(twoVectors[1]);
-          newTriangles.push_back( createClippedTriangle(positions,colour));
+          newTriangles.push_back( createClippedTriangle(positions,colour ));
+          // new triangle 2
+          vector<vec4> positions2;
+          positions2.push_back(intersections[0]);
+          positions2.push_back(intersections[1]);
+          positions2.push_back(twoVectors[0]);
+          newTriangles.push_back( createClippedTriangle(positions2, colour));
 
           // cout << " 2 new triangles! \n";
       }
@@ -395,22 +395,22 @@ vec4 intersection(vec4 q1, vec4 q2,int plane){
     // LEFT
     switch(plane){
         case 8:
-            t = ( c1.w - ((float)2/SCREEN_HEIGHT)*q1.y )/( ( c1.w - ((float)2/SCREEN_HEIGHT)*q1.y  ) - ( c2.w - ((float)2/SCREEN_HEIGHT)*q2.y ) );
+            t = ( c1.w - ((float)2/SCREEN_HEIGHT)*c1.y )/( ( c1.w - ((float)2/SCREEN_HEIGHT)*c1.y  ) - ( c2.w - ((float)2/SCREEN_HEIGHT)*c2.y ) );
             break;
         case 4:
-            t = ( c1.w - ((float)-2/SCREEN_HEIGHT)*q1.y )/( ( c1.w - ((float)-2/SCREEN_HEIGHT)*q1.y  ) - ( c2.w - ((float)-2/SCREEN_HEIGHT)*q2.y ) );
+            t = ( c1.w - ((float)-2/SCREEN_HEIGHT)*c1.y )/( ( c1.w - ((float)-2/SCREEN_HEIGHT)*c1.y  ) - ( c2.w - ((float)-2/SCREEN_HEIGHT)*c2.y ) );
             break;
         case 2:
-            t = ( c1.w - ((float)2/SCREEN_WIDTH)*q1.x )/( ( c1.w - ((float)2/SCREEN_WIDTH)*q1.x  ) - ( c2.w - ((float)2/SCREEN_WIDTH)*q2.x ) );
+            t = ( c1.w - ((float)2/SCREEN_WIDTH)*c1.x )/( ( c1.w - ((float)2/SCREEN_WIDTH)*c1.x  ) - ( c2.w - ((float)2/SCREEN_WIDTH)*c2.x ) );
             break;
         case 1:
-            t = ( c1.w - ((float)-2/SCREEN_WIDTH)*q1.x )/( ( c1.w - ((float)-2/SCREEN_WIDTH)*q1.x  ) - (c2.w - ((float)-2/SCREEN_WIDTH)*q2.x ) );
+            t = ( c1.w - ((float)-2/SCREEN_WIDTH)*c1.x )/( ( c1.w - ((float)-2/SCREEN_WIDTH)*c1.x  ) - (c2.w - ((float)-2/SCREEN_WIDTH)*c2.x ) );
             break;
 
     }
 
     // float t = ( c1.w - (SCREEN_WIDTH/2)*c1.y )/( ( c1.w - (SCREEN_WIDTH/2)*c1.y  ) - ( c2.w - (SCREEN_WIDTH/2)*c2.y ) );
-    vec4 intersection = (q1 + t*(q2 - q1)) ;
+    vec4 intersection = (c1 + t*(c2 - c1)) + cameraPos ;
     cout << "Intersection: ";
     cout << "( " << intersection.x << "," << intersection.y <<  "," << intersection.z << "," << intersection.w << ")" << "\n";
     return intersection;
