@@ -129,7 +129,7 @@ void computeOutcode(Vertex &v){
 }
 
 vector<Triangle>  clipping(ClippedTriangle clippedTriangle){
-    cout << "CLIPPING A Triangle\n";
+    // cout << "CLIPPING A Triangle\n";
     vector<Triangle> keepTriangles;
     vector<ClippedTriangle> newTriangles;
     newTriangles.push_back(clippedTriangle);
@@ -142,10 +142,11 @@ vector<Triangle>  clipping(ClippedTriangle clippedTriangle){
 
 
     for(int i = 0; i < newTriangles.size();i++){
-      cout << "Adding Triangle...\n";
+      // cout << "Adding Triangle...\n";
       keepTriangles.push_back(  Triangle(newTriangles[i].vertices[0].position,newTriangles[i].vertices[1].position,newTriangles[i].vertices[2].position,newTriangles[i].color));
-      cout << "Triangle added.\n";
+      // cout << "Triangle added.\n";
     }
+    cout << "No. Triangles Addded " << keepTriangles.size() << endl;
     return keepTriangles;
 }
 vector<ClippedTriangle> clipAxis(vector<ClippedTriangle> triangles,int plane){
@@ -153,16 +154,16 @@ vector<ClippedTriangle> clipAxis(vector<ClippedTriangle> triangles,int plane){
 
     switch(plane){
       case TOP:
-        cout << "CLIPPING TOP \n";
+        // cout << "CLIPPING TOP \n";
         break;
       case BOTTOM:
-        cout << "CLIPPING BOTTOM \n";
+        // cout << "CLIPPING BOTTOM \n";
         break;
       case RIGHT:
-        cout << "CLIPPING RIGHT \n";
+        // cout << "CLIPPING RIGHT \n";
         break;
       case LEFT:
-        cout << "CLIPPING LEFT \n";
+        // cout << "CLIPPING LEFT \n";
         break;
     }
     for (int i = 0; i < triangles.size(); i++) {
@@ -209,7 +210,7 @@ vector<ClippedTriangle> clipAxis(vector<ClippedTriangle> triangles,int plane){
           positions.push_back(twoVectors[1]);
           newTriangles.push_back( createClippedTriangle(positions,colour));
 
-          cout << " 2 new triangles! \n";
+          // cout << " 2 new triangles! \n";
       }
 
       // // CASE 2
@@ -241,11 +242,11 @@ vector<ClippedTriangle> clipAxis(vector<ClippedTriangle> triangles,int plane){
 
           newTriangles.push_back( createClippedTriangle(positions,colour));
 
-          cout << " 1 new triangles! \n";
+          // cout << " 1 new triangles! \n";
       }
 
     }
-    cout << "No. Triangles " << newTriangles.size() << endl;
+
     return newTriangles;
 
 }
@@ -266,15 +267,15 @@ ClippedTriangle createClippedTriangle(vector<vec4> positions, vec3 colour){
 vector<int> numVerticesOut(ClippedTriangle triangle, int plane){
     vector<int> indices;
     for(int i = 0; i < 3; i++){
-        cout << "Vertex " << i << " Outcode " << triangle.vertices[i].outcode << endl;
+        // cout << "Vertex " << i << " Outcode " << triangle.vertices[i].outcode << endl;
         if((triangle.vertices[i].outcode & plane) == plane ){
             indices.push_back(i);
         }
 
     }
-    for(int j = 0; j < indices.size();j++){
-        cout << "Number " << j <<"Out Index: " << indices[j] << endl;
-    }
+    // for(int j = 0; j < indices.size();j++){
+    //     cout << "Number " << j <<"Out Index: " << indices[j] << endl;
+    // }
 
     return indices;
 }
@@ -331,7 +332,7 @@ void Draw(screen* screen){
         for(int j = 0; j <3;j++){
             triangleVerts[j].clipSpace = toClipSpace(triangleVerts[j].position);
             computeOutcode(triangleVerts[j]);
-            cout << "Triangle: " << i << " Vertex: " << j << " Outcode: " <<  triangleVerts[j].outcode << "\n";
+            // cout << "Triangle: " << i << " Vertex: " << j << " Outcode: " <<  triangleVerts[j].outcode << "\n";
             if(!onScreen(triangleVerts[j])){
                 triangleVerts[j].onScreen = false;
                 addTriangle = false;
@@ -346,38 +347,39 @@ void Draw(screen* screen){
         }else{
             ClippedTriangle clippedTri;
             clippedTri.vertices = triangleVerts;
-            clippedTri.color = triangles[i].color - vec3(0.1f,0.1f,0.1f);
+            clippedTri.color = triangles[i].color * vec3(0.5f,0.5f,0.5f);
             clippedTriangles.push_back(clippedTri);
         }
     }
-    cout << "No. of Triangles Clipped: " << clippedTriangles.size() << "\n";
+    cout << "No. of Triangles Clipped: " << clippedTriangles.size() << "\n" << endl << endl;
 
     for(int i = 0; i < clippedTriangles.size();i++){
         newTriangles = clipping(clippedTriangles[i]);
         cout << "Done " << i << endl;
+        for(int i = 0; i < newTriangles.size();i++){
+            keepTriangles.push_back(newTriangles[i]);
+        }
     }
-    for(int i = 0; i < newTriangles.size();i++){
-        keepTriangles.push_back(newTriangles[i]);
-    }
+
 
     //Draws the keep triangles
     vector<Vertex> keepTriangleVerts(3);
     cout << "Number of Triangles  " << keepTriangles.size() << endl;
     for(int i=0; i<keepTriangles.size(); i++)
     {
-        cout << "Computing No. " << i << endl;
+        // cout << "Computing No. " << i << endl;
         currentReflectance = keepTriangles[i].color;
-        cout << "HERE\n";
+        // cout << "HERE\n";
         currentNormal = keepTriangles[i].normal;
-        cout << "HERE\n";
+        // cout << "HERE\n";
         keepTriangleVerts[0].position = keepTriangles[i].v0;
-        cout << "HERE\n";
+        // cout << "HERE\n";
         keepTriangleVerts[1].position = keepTriangles[i].v1;
-        cout << "HERE\n";
+        // cout << "HERE\n";
         keepTriangleVerts[2].position = keepTriangles[i].v2;
-        cout << "HERE\n";
+        // cout << "HERE\n";
         DrawPolygon(keepTriangleVerts,screen);
-        cout << "FINISHED DRAWING\n";
+        // cout << "FINISHED DRAWING\n";
     }
 }
 vec4 intersection(vec4 q1, vec4 q2,int plane){
@@ -393,22 +395,22 @@ vec4 intersection(vec4 q1, vec4 q2,int plane){
     // LEFT
     switch(plane){
         case 8:
-            t = ( c1.w - ((float)2/SCREEN_HEIGHT)*c1.y )/( ( c1.w - ((float)2/SCREEN_HEIGHT)*c1.y  ) - ( c2.w - ((float)2/SCREEN_HEIGHT)*q2.y ) );
+            t = ( c1.w - ((float)2/SCREEN_HEIGHT)*q1.y )/( ( c1.w - ((float)2/SCREEN_HEIGHT)*q1.y  ) - ( c2.w - ((float)2/SCREEN_HEIGHT)*q2.y ) );
             break;
         case 4:
-            t = ( c1.w - ((float)2/SCREEN_HEIGHT)*c1.y )/( ( c1.w - ((float)2/SCREEN_HEIGHT)*c1.y  ) - ( c2.w - ((float)2/SCREEN_HEIGHT)*q2.y ) );
+            t = ( c1.w - ((float)-2/SCREEN_HEIGHT)*q1.y )/( ( c1.w - ((float)-2/SCREEN_HEIGHT)*q1.y  ) - ( c2.w - ((float)-2/SCREEN_HEIGHT)*q2.y ) );
             break;
         case 2:
-            t = ( c1.w - ((float)2/SCREEN_WIDTH)*c1.x )/( ( c1.w - ((float)2/SCREEN_WIDTH)*c1.x  ) - ( c2.w - ((float)2/SCREEN_WIDTH)*q2.x ) );
+            t = ( c1.w - ((float)2/SCREEN_WIDTH)*q1.x )/( ( c1.w - ((float)2/SCREEN_WIDTH)*q1.x  ) - ( c2.w - ((float)2/SCREEN_WIDTH)*q2.x ) );
             break;
         case 1:
-            t = ( c1.w - ((float)2/SCREEN_WIDTH)*c1.x )/( ( c1.w - ((float)2/SCREEN_WIDTH)*c1.x  ) - (c2.w - ((float)2/SCREEN_WIDTH)*q2.x ) );
+            t = ( c1.w - ((float)-2/SCREEN_WIDTH)*q1.x )/( ( c1.w - ((float)-2/SCREEN_WIDTH)*q1.x  ) - (c2.w - ((float)-2/SCREEN_WIDTH)*q2.x ) );
             break;
 
     }
 
     // float t = ( c1.w - (SCREEN_WIDTH/2)*c1.y )/( ( c1.w - (SCREEN_WIDTH/2)*c1.y  ) - ( c2.w - (SCREEN_WIDTH/2)*c2.y ) );
-    vec4 intersection = (c1 + t*(c2 - c1));// + cameraPos;
+    vec4 intersection = (q1 + t*(q2 - q1)) ;
     cout << "Intersection: ";
     cout << "( " << intersection.x << "," << intersection.y <<  "," << intersection.z << "," << intersection.w << ")" << "\n";
     return intersection;
