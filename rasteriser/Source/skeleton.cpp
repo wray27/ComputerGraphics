@@ -347,7 +347,8 @@ void Draw(screen* screen){
         }else{
             ClippedTriangle clippedTri;
             clippedTri.vertices = triangleVerts;
-            clippedTri.color = triangles[i].color * vec3(0.5f,0.5f,0.5f);
+            //uncomment multiplication to show clipping
+            clippedTri.color = triangles[i].color;// * vec3(0.5f,0.5f,0.5f);
             clippedTriangles.push_back(clippedTri);
         }
     }
@@ -411,8 +412,8 @@ vec4 intersection(vec4 q1, vec4 q2,int plane){
 
     // float t = ( c1.w - (SCREEN_WIDTH/2)*c1.y )/( ( c1.w - (SCREEN_WIDTH/2)*c1.y  ) - ( c2.w - (SCREEN_WIDTH/2)*c2.y ) );
     vec4 intersection = (c1 + t*(c2 - c1)) + cameraPos ;
-    cout << "Intersection: ";
-    cout << "( " << intersection.x << "," << intersection.y <<  "," << intersection.z << "," << intersection.w << ")" << "\n";
+    // cout << "Intersection: ";
+    // cout << "( " << intersection.x << "," << intersection.y <<  "," << intersection.z << "," << intersection.w << ")" << "\n";
     return intersection;
 
 
