@@ -146,26 +146,13 @@ vector<Triangle>  clipping(ClippedTriangle clippedTriangle){
       keepTriangles.push_back(  Triangle(newTriangles[i].vertices[0].position,newTriangles[i].vertices[1].position,newTriangles[i].vertices[2].position,newTriangles[i].color));
       // cout << "Triangle added.\n";
     }
-    cout << "No. Triangles Addded " << keepTriangles.size() << endl;
+    // cout << "No. Triangles Addded " << keepTriangles.size() << endl;
     return keepTriangles;
 }
 vector<ClippedTriangle> clipAxis(vector<ClippedTriangle> triangles,int plane){
     vector<ClippedTriangle> newTriangles;
 
-    switch(plane){
-      case TOP:
-        // cout << "CLIPPING TOP \n";
-        break;
-      case BOTTOM:
-        // cout << "CLIPPING BOTTOM \n";
-        break;
-      case RIGHT:
-        // cout << "CLIPPING RIGHT \n";
-        break;
-      case LEFT:
-        // cout << "CLIPPING LEFT \n";
-        break;
-    }
+
     for (int i = 0; i < triangles.size(); i++) {
       ClippedTriangle clippedTriangle = triangles[i];
       vec3 colour = clippedTriangle.color;
@@ -246,6 +233,13 @@ vector<ClippedTriangle> clipAxis(vector<ClippedTriangle> triangles,int plane){
       }
 
     }
+    // for (size_t i = 0; i < 2; i++) {
+    //   cout << newTriangles[i].vertices[0].position.x <<","<< newTriangles[i].vertices[0].position.y<< "," << newTriangles[i].vertices[0].position.z << endl ;
+    //   cout << newTriangles[i].vertices[1].position.x <<","<< newTriangles[i].vertices[1].position.y<< "," << newTriangles[i].vertices[1].position.z << endl ;
+    //   cout << newTriangles[i].vertices[2].position.x <<","<< newTriangles[i].vertices[2].position.y<< "," << newTriangles[i].vertices[2].position.z << endl << endl;
+    //   /* code */
+    // }
+
 
     return newTriangles;
 
@@ -321,7 +315,7 @@ void Draw(screen* screen){
     // boolean to add triangles that do not need to be clipped
     bool addTriangle;
     // CLIPPING - Getting rid of the triangles that are off of the screen
-    for(int i=0; i<triangles.size(); i++){
+    for(int i=0; i< triangles.size(); i++){
 
         addTriangle = true;
         triangleVerts[0].position = triangles[i].v0;
@@ -352,20 +346,21 @@ void Draw(screen* screen){
             clippedTriangles.push_back(clippedTri);
         }
     }
-    cout << "No. of Triangles Clipped: " << clippedTriangles.size() << "\n" << endl << endl;
+    // cout << "No. of Triangles Clipped: " << clippedTriangles.size() << "\n" << endl << endl;
 
     for(int i = 0; i < clippedTriangles.size();i++){
         newTriangles = clipping(clippedTriangles[i]);
-        cout << "Done " << i << endl;
+        // cout << "Done " << i << endl;
         for(int i = 0; i < newTriangles.size();i++){
             keepTriangles.push_back(newTriangles[i]);
         }
+
     }
 
 
     //Draws the keep triangles
     vector<Vertex> keepTriangleVerts(3);
-    cout << "Number of Triangles  " << keepTriangles.size() << endl;
+    // cout << "Number of Triangles  " << keepTriangles.size() << endl;
     for(int i=0; i<keepTriangles.size(); i++)
     {
         // cout << "Computing No. " << i << endl;
@@ -412,7 +407,7 @@ vec4 intersection(vec4 q1, vec4 q2,int plane){
 
     // float t = ( c1.w - (SCREEN_WIDTH/2)*c1.y )/( ( c1.w - (SCREEN_WIDTH/2)*c1.y  ) - ( c2.w - (SCREEN_WIDTH/2)*c2.y ) );
     vec4 intersection = (c1 + t*(c2 - c1)) + cameraPos ;
-    // cout << "Intersection: ";
+    // cout << plane << " Intersection: ";
     // cout << "( " << intersection.x << "," << intersection.y <<  "," << intersection.z << "," << intersection.w << ")" << "\n";
     return intersection;
 
