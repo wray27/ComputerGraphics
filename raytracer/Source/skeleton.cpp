@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "limits"
 #include "ObjLoader.h"
+#include <omp.h>
 
 
 
@@ -16,9 +17,9 @@ using glm::vec4;
 using glm::mat4;
 
 SDL_Event event;
-#define PI 3.14159255358979323546
-#define SCREEN_WIDTH 256
-#define SCREEN_HEIGHT 256
+#define PI 3.14159265358979323546
+#define SCREEN_WIDTH 512
+#define SCREEN_HEIGHT 512
 #define FULLSCREEN_MODE false
 
 struct Intersection
@@ -26,6 +27,7 @@ struct Intersection
 	vec4 position;
 	float distance;
 	int triangleIndex;
+	bool is_sphere;
 };
 
 struct Light
@@ -34,7 +36,15 @@ struct Light
 	vec3 col;
 };
 
-float focalLength = 256;
+struct Sphere
+{
+	vec4 center;
+	float radius;
+	vec3 colour;
+	bool is_reflective;
+};
+
+float focalLength = 512;
 vec4 cameraPos(0,0,-3,1.0);
 float yaw = 0;
 //vec4 lightPos = vec4( 0, -0.5, -0.7, 1.0 );
@@ -51,12 +61,17 @@ vec3 IndirectLight( const Intersection& i);
 vec3 light( const Intersection& i);
 void Draw(screen* screen);
 bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles, Intersection& closestIntersection );
+bool raySphereIntersection(vec4 start, vec4 dir, Sphere &s, Intersection &closestInt);
 void setupLighting(vector<Light> &lights);
-vec3 reflection(const Intersection &i, vec3 colour);
+void setupSphere(Sphere &s);
+bool solveQuadratic(const float &a, const float &b, const float &c, float &x0, float &x1);
+
 //void LoadTestModel( std::vector<Triangle>&triangles );
 
 vector<Triangle> triangles;
 vector<Light> lights;
+Sphere sphere;
+
 //initialise a light here
 
 
@@ -74,10 +89,13 @@ vector<Light> lights;
 
 int main( int argc, char* argv[] )
 {
-	//int objectCount= 0;
 	setupLighting(lights);
 	screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
+	//load in sphere and triangles
+	setupSphere(sphere);
 	LoadTestModel(triangles);
+	//Object Loading
+	//int objectCount= 0;
 	// if(loadOBJ("./Objects/bunny.obj",triangles)) {
 	// 	cout << "Object " << objectCount << " loaded successfully!\n";
 	// 	cout << triangles[0].v1.x << "," << triangles[0].v1.y << "," << triangles[0].v1.z << endl;
@@ -86,8 +104,11 @@ int main( int argc, char* argv[] )
 
 	while (Update())
 	{
+
+
 		Draw(screen);
 		SDL_Renderframe(screen);
+		SDL_SaveImage( screen, "screenshot.bmp" );
 
 	}
 
@@ -102,9 +123,16 @@ void setupLighting(vector<Light> &lights) {
 	 lights.resize(1);
 	//original light
 	 lights[0].pos = vec4( 0, -0.5, -0.7, 1.0 );
-	 lights[0].col = 14.f * vec3( 1.0f, 1.0f, 1.0f ); 
+	 lights[0].col = 14.f * vec3( 1.0f, 1.0f, 1.0f );
 }
+void setupSphere(Sphere &s) {
+		s.center = vec4(-0.5f,0.7f,-0.7f,1.0f);
+		s.radius = 0.3f;
+		s.colour = vec3(1.0f,0.27f,0.0f);
+		s.is_reflective = 0;
 
+
+}
 
 
 /*Place your drawing here*/
@@ -114,46 +142,42 @@ void Draw(screen* screen) {
 	Intersection closestIntersection;
 	Intersection closestIntersection_two;
 
-
+  #pragma omp parallel for private(closestIntersection , closestIntersection_two)
 	for(int y = 0; y < SCREEN_HEIGHT; y++) {
 		for(int x = 0; x < SCREEN_WIDTH; x++) {
-			vec3 colour = vec3(0.0,0.0,0.0);
+			vec3 colour = vec3(0.0f);
+			//Anti-Aliasing and Depth of Field
 			 for (float i = -0.5; i <= 0.5; i+=0.25f) {
-				 for (float j = -0.5; j <= 0.5; j +=0.25f) {
-					//vec4 d = vec4(x - (SCREEN_WIDTH / 2), y - (SCREEN_HEIGHT / 2), focalLength, 1.0);
-					vec4 d = vec4(x - (SCREEN_WIDTH / 2) + i*128/22.5f, y - (SCREEN_HEIGHT / 2) + j*128/22.5f, focalLength, 1.0);
-					bool b = ClosestIntersection(cameraPos - vec4(i, j, 0, 0)/22.5f, d, triangles, closestIntersection);			
-					if(b) {
-						 //int i = closestIntersection.triangleIndex;
-						 //vec3 colour = triangles[i].color;
-						colour += IndirectLight(closestIntersection);
-					}
+					for (float j = -0.5; j <= 0.5; j +=0.25f) {
+				    //vec4 d = vec4(x - (SCREEN_WIDTH / 2), y - (SCREEN_HEIGHT / 2), focalLength, 1.0);
+					  vec4 d = vec4(x - (SCREEN_WIDTH / 2) + i*256/20.5f, y - (SCREEN_HEIGHT / 2) + j*256/20.5f, focalLength, 1.0);
+					  bool b = ClosestIntersection(cameraPos - vec4(i, j, 0, 0)/20.5f, d, triangles, closestIntersection);
+						bool c = raySphereIntersection(cameraPos - vec4(i, j, 0, 0)/20.5f, d,sphere,closestIntersection);
+						if(b || c) {
+							//int i = closestIntersection.triangleIndex;
+							//colour = triangles[i].color;
+							colour += IndirectLight(closestIntersection);
+						}
 
-
-
-					if(triangles[closestIntersection.triangleIndex].is_reflective) {
-						colour = vec3(0.0,0.0,0.0);
-						//colour = vec3(triangles[closestIntersection.triangleIndex].normal);
-
-						vec4 dir = closestIntersection.position - cameraPos;
-						
-						vec4 N = triangles[closestIntersection.triangleIndex].normal;
-						vec4 start = closestIntersection.position + (0.01f * N);
-						float dot_prod = -2 * dot(dir,N);
-						vec4 reflected_ray = dir + (dot_prod * N);
-
-
-						if(ClosestIntersection(start,reflected_ray, triangles, closestIntersection_two)){
-							colour = triangles[closestIntersection_two.triangleIndex].color * 25.0f;
-						}						
-
-					}
-				 }
-			 }
-
+					//Reflection
+						if(triangles[closestIntersection.triangleIndex].is_reflective) {
+							colour = vec3(0.0f,0.0f,0.0f);
+							vec4 dir = closestIntersection.position - cameraPos;
+							vec4 N = triangles[closestIntersection.triangleIndex].normal;
+							//vec4 N = normalize(closestIntersection.position - sphere.center);
+							vec4 start = closestIntersection.position;
+							vec3 reflected_v3 = glm::reflect(vec3(dir), vec3(N));
+							vec4 reflected_ray = vec4(reflected_v3, 1.0f);
+							if(ClosestIntersection(start + 1e-3f*reflected_ray - vec4(i, j, 0, 0)/20.5f, reflected_ray, triangles, closestIntersection_two)) {
+								colour += IndirectLight(closestIntersection_two);
+							}
+						}
+				  }
+			  }
 			PutPixelSDL(screen, x, y, colour /25.0f);
-			
+
 		}
+		SDL_Renderframe(screen);
 	}
 }
 
@@ -199,7 +223,7 @@ mat4 setRotationMat(mat4 R, float yaw){
 	//Fourth column
 	for (int i = 0; i < 3; i++){
 		R[i][3] = -cameraPos[i];
-		
+
 	}
 	// R[0][3] = 1;
 	// R[1][3] = 1;
@@ -218,36 +242,37 @@ bool Update()
 	static int t = SDL_GetTicks();
 	/* Compute frame time */
 	int t2 = SDL_GetTicks();
-	// float dt = float(t2-t);
+	float dt = float(t2-t);
 	t = t2;
 	float change =0.1f;
-
+	cout << "Render time: " << dt << "ms." << endl;
 	mat4 R;
 	R = setRotationMat(R,yaw);
 	vec4 forward( R[2][0], R[2][1], R[2][2], 1 );
 	vec4 right(   R[0][0], R[0][1], R[0][2], 1 );
-   	vec4 down(    R[1][0], R[1][1], R[1][2], 1 );
-	
+  vec4 down(    R[1][0], R[1][1], R[1][2], 1 );
+
 
 
 	// if( keystate[SDLK_w] )
     //  lightPos += forward;
-	
+
 	// if( keystate[SDLK_s] )
-	// 	lightPos -= forward;	
-	
+	// 	lightPos -= forward;
+
 	// if( keystate[SDLK_a] )
-	// 	lightPos -= right;			
-	
+	// 	lightPos -= right;
+
 	// if( keystate[SDLK_d] )
-	// 	lightPos += right;			
-	
+	// 	lightPos += right;
+
 	// if( keystate[SDLK_e] )
 	// 	lightPos += down;
-	
+
 	// if( keystate[SDLK_q] )
+
 	// 	lightPos -= down;
-					
+
 
 	SDL_Event e;
 	while(SDL_PollEvent(&e))
@@ -260,7 +285,7 @@ bool Update()
 			{
 				int key_code = e.key.keysym.sym;
 				switch(key_code)
-				{	
+				{
 					case SDLK_w:
 					{
 						lights.at(0).pos += forward;
@@ -294,7 +319,7 @@ bool Update()
 					case SDLK_UP:
 					{
 						/* Move camera forward */
-						
+
 						// vec4 forward( R[2][0], R[2][1], R[2][2], 1 );
 						// cameraPos = forward * vec4(cameraPos[0],cameraPos[1],cameraPos[2],cameraPos[3]);
 						cameraPos[2] = cameraPos[2] + change;
@@ -339,7 +364,7 @@ bool Update()
 						// /* Move camera quit */
 						// return false;
 				}
-			}  
+			}
 		}
 		return true;
 	}
@@ -356,31 +381,33 @@ vec3 light( const Intersection& i){
 	vec4 lightPos1 = lights.at(0).pos;
 	vec3 lightColor = lights.at(0).col;
 
-	for(float k = -0.1f; k <= 0.1f; k+= 0.05f) {
-		for(float j = -0.1f; j <= 0.1f; j+= 0.05f){
+	for(float k = -0.2f; k <= 0.2f; k+= 0.05f) {
+		for(float j = -0.2f; j <= 0.2f; j+= 0.05f){
 			vec4 lightPos = lightPos1 + vec4(k, 0, j, 0);
 
 			//vec4 lightPos = lights.at(j).pos;
-			
+
 			// calculates whether an area has a shadow
 			Intersection shadowI;
 			vec4 dir = lightPos - i.position;
 			ClosestIntersection(i.position+1e-3f*dir,dir,triangles,shadowI);
-			
-			//if the distance is greater than 1 then there is not shadow
+			raySphereIntersection(i.position+1e-3f*dir,dir,sphere, shadowI);
+
+
+			//if the distance is greater than 1 then there is not a shadow
 			if (shadowI.distance >= 1) {
 				//color vector describes the power P
 				//vec3 lightColor = 14.f * vec3( 1.0f, 1.0f, 1.0f );
-				
+
 				//calculatiing the distance from light source - r
 				float distance = glm::distance(lightPos,i.position);
-				
+
 				// unit vector describing the direction from the surface point to the light source
 				vec4 _r = glm::normalize(lightPos - i.position);
 				// vec3 r = glm::normalize(vec3(_r.x,_r.y,_r.z));
 
 				//normal pointing out of the surface as a unit vector
-				vec4 _n = glm::normalize(triangles[i.triangleIndex].normal);
+				vec4 _n = i.is_sphere ? normalize(i.position - sphere.center) : glm::normalize(triangles[i.triangleIndex].normal);
 				// vec3 n = glm::normalize(vec3(triangles[i.triangleIndex].normal.x,triangles[i.triangleIndex].normal.y,triangles[i.triangleIndex].normal.x));
 
 				// Adds light to the scene with no colour
@@ -388,53 +415,19 @@ vec3 light( const Intersection& i){
 				// adds colour tot the scene
 				// colour = colour * triangles[i.triangleIndex].color;
 			}
-
 		}
 	}
 
 
-	colour /= 40.0f;
+	colour /= 60.0f;
 
-	// vec4 lightPos = lights.at(0).pos;
-	// vec3 lightColor = lights.at(0).col;
-
-
-	// // calculates whether an area has a shadow
-	// Intersection shadowI;
-	// vec4 dir = lightPos - i.position;
-	// ClosestIntersection(i.position+1e-3f*dir,dir,triangles,shadowI);
-	
-	// //avg out shadow intensity?
-	// if (shadowI.distance < 1){
-	// 	colour =  vec3(0.0f,0.0f,0.0f);
-	// 	return colour;
-	// }
-
-	// //color vector describes the power P
-	// //vec3 lightColor = 14.f * vec3( 1.0f, 1.0f, 1.0f );
-	
-	// //calculatiing the distance from light source - r
-	// float distance = glm::distance(lightPos,i.position);
-	
-	// // unit vector describing the direction from the surface point to the light source
-	// vec4 _r = glm::normalize(lightPos - i.position);
-	// // vec3 r = glm::normalize(vec3(_r.x,_r.y,_r.z));
-
-	// //normal pointing out of the surface as a unit vector
-	// vec4 _n = glm::normalize(triangles[i.triangleIndex].normal);
-	// // vec3 n = glm::normalize(vec3(triangles[i.triangleIndex].normal.x,triangles[i.triangleIndex].normal.y,triangles[i.triangleIndex].normal.x));
-
-
-	// // Adds light to the scene with no colour
-	// colour = (lightColor * max(glm::dot(_r,_n),0.0f)) / (float)(4*PI*pow(distance,2));
-	// // adds colour tot the scene
-	// // colour = colour * triangles[i.triangleIndex].color;
 	return colour;
 }
 
 
 vec3 DirectLight(const Intersection& i ){
 	vec3 ret = light(i) * triangles[i.triangleIndex].color;
+	//vec3 ret = i.is_sphere ? light(i) * sphere.colour : light(i) * triangles[i.triangleIndex].color;
 	return ret;
 }
 
@@ -444,8 +437,8 @@ vec3 IndirectLight(const Intersection& i) {
 	vec3 indirectLight = 0.5f*vec3(1.0f,1.0f,1.0f);
 	// float distance = glm::distance(lightPos,i.position);
 	vec3 illum = light(i);
-	colour = (illum + indirectLight) * triangles[i.triangleIndex].color;
-	
+	colour = i.is_sphere ? (illum + indirectLight) * sphere.colour : (illum + indirectLight) * triangles[i.triangleIndex].color;
+
 	// adds colour tot the scene
 	//colour = colour * triangles[i.triangleIndex].color;
 	//colour = triangles[i.triangleIndex].color * total;
@@ -453,31 +446,6 @@ vec3 IndirectLight(const Intersection& i) {
 	return colour;
 }
 
-vec3 reflection(const Intersection &i, vec3 colour){
-
-	vec4 lightPos = lights.at(0).pos;
-	vec4 dir = lightPos - i.position;
-
-	Intersection ref_i;
-
-	vec4 N = triangles[i.triangleIndex].normal;
-
-
-	float dot_prod = -2 * dot(dir,N);
-	vec4 reflected_ray = dir + (dot_prod * N);
-
-
-	bool ci = ClosestIntersection(i.position, reflected_ray, triangles, ref_i);
-	if(ci) {
-		int ii = ref_i.triangleIndex;
-		colour = triangles[ii].color;
-	}
-	
-
-
-	return colour;
-
-}
 
 
 
@@ -513,7 +481,7 @@ bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles
 
 	 if(t > 0.001) {
 
-	  mat3 A2(-d,b,e2); // u 
+	  mat3 A2(-d,b,e2); // u
 	  float u = glm::determinant(A2) / glm::determinant(A);
 
 	  mat3 A3(-d, e1, b); // v
@@ -532,12 +500,79 @@ bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles
 			closestIntersection.position = start + (t*dir);
 			closestIntersection.triangleIndex = i;
 			closestIntersection.distance = t;
+			closestIntersection.is_sphere = false;
 		 }
-
 	  }
 	 }
 	}
+
 	return intersectsTriangle;
 }
 
+bool raySphereIntersection(vec4 start, vec4 dir, Sphere &sphere, Intersection &closestIntersection) {
 
+	float radius2 = (sphere.radius * sphere.radius);
+	float t0, t1; //solutions - if there are any
+	bool intersects_sphere = false;
+	// vec4 L = sphere.center - start;
+	// float tca = dot(L,dir);
+	// float d2 = dot(L,L) - (tca * tca);
+	// if(d2 > radius2) return false;
+	// float thc = sqrt(radius2 - d2);
+	// t0 = tca - thc;
+	// t1 = tca + thc;
+	//
+	// if(t0 > t1) std::swap(t0, t1);
+	// if(t0 < 0) {
+	// 	t0 = t1;
+	// 	if(t0 < 0) return false;
+	// }
+	//
+	// if(t0 < closestIntersection.distance) {
+	// closestIntersection.distance = t0;
+	// closestIntersection.position = start + (t0*dir);
+	// return true;
+	// }
+
+	vec4 L = start - sphere.center;
+	float a = glm::dot(dir,dir);
+	float b = 2 * glm::dot(dir,L);
+	float c = glm::dot(L,L) - radius2;
+	if(!solveQuadratic(a,b,c,t0,t1)) return intersects_sphere;
+
+	if(t0 > t1) std::swap(t0,t1);
+	if(t0 < 0) {
+		t0 = t1;
+		if(t0 < 0) return intersects_sphere;
+	}
+
+
+	if(t0 < closestIntersection.distance) {
+	closestIntersection.distance = t0;
+	closestIntersection.position = start + (t0*dir);
+	closestIntersection.is_sphere = true;
+	// return true;
+	intersects_sphere = true;
+	}
+
+	return intersects_sphere;
+}
+
+
+bool solveQuadratic(const float &a, const float &b, const float &c, float &x0, float &x1)
+{
+float discr = b * b - 4 * a * c;
+if (discr < 0) return false;
+else if (discr == 0) {
+x0 = x1 = - 0.5 * b / a;
+}
+else {
+float q = (b > 0) ?
+-0.5 * (b + sqrt(discr)) :
+-0.5 * (b - sqrt(discr));
+x0 = q / a;
+x1 = c / q;
+}
+
+return true;
+}

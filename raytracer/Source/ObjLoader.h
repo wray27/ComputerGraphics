@@ -32,7 +32,7 @@ std::vector<glm::vec4> scale(std::vector<glm::vec4>verticies) {
 	float min_y = 10.0;
 	float min_z = 10.0;
 
-	std::vector<glm::vec4> output;	
+	std::vector<glm::vec4> output;
 
 	for(int i = 0; i < verticies.size(); i++) {
 
@@ -73,8 +73,6 @@ std::vector<glm::vec4> scale(std::vector<glm::vec4>verticies) {
 
 	}
 
-	cout << "Here" << endl;
-
 	return output;
 }
 
@@ -92,10 +90,10 @@ bool loadOBJ(const char * path, std::vector<Triangle>&triangles){
 	}
 
 	std::vector<Triangle> scaledTriangles;
-	
+
 
 	std::vector< unsigned int > vertexIndicesA, vertexIndicesB,vertexIndicesC, uvIndices, normalIndices;
-	
+
 	std::vector< glm::vec4 > temp_vertices;
 	std::vector< glm::vec2 > temp_uvs;
 	std::vector< glm::vec4 > temp_normals;
@@ -106,7 +104,7 @@ bool loadOBJ(const char * path, std::vector<Triangle>&triangles){
 	    int res = fscanf(file, "%s", lineHeader);
 	    if (res == EOF)
 	        break; // EOF = End Of File. Quit the loop.
-	    
+
 	    if ( strcmp( lineHeader, "v" ) == 0 ){
 	    	// If the first word of the line is “v”, then the rest has to be 3 floats, so create a glm::vec3 out of them, and add it to the vector.
 		    glm::vec4 vertex;
@@ -142,14 +140,14 @@ bool loadOBJ(const char * path, std::vector<Triangle>&triangles){
 		    vertexIndicesA.push_back(vertexIndex[0]);
 		    vertexIndicesB.push_back(vertexIndex[1]);
 		    vertexIndicesC.push_back(vertexIndex[2]);
-		    
+
 		    // uvIndices    .push_back(uvIndex[0]);
 		    // uvIndices    .push_back(uvIndex[1]);
 		    // uvIndices    .push_back(uvIndex[2]);
 		    // normalIndices.push_back(normalIndex[0]);
 		    // normalIndices.push_back(normalIndex[1]);
 		    // normalIndices.push_back(normalIndex[2]);
-		  
+
 
 			// for( int i=0; i < vertexIndices.size(); i++ ){
 			// 	// For each vertex of each triangle
@@ -172,7 +170,7 @@ bool loadOBJ(const char * path, std::vector<Triangle>&triangles){
 
 		}
 
-		
+
 
 
 	}
@@ -199,7 +197,7 @@ bool loadOBJ(const char * path, std::vector<Triangle>&triangles){
 	}
 
 
-	// cout << scaledTriangles[1].v0.x<< "," << scaledTriangles[1].v0.y << "," << scaledTriangles[1].v0.z <<endl;	
+	// cout << scaledTriangles[1].v0.x<< "," << scaledTriangles[1].v0.y << "," << scaledTriangles[1].v0.z <<endl;
 	return true;
 
 }
