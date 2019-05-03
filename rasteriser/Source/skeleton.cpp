@@ -4,6 +4,8 @@
 #include "SDLauxiliary.h"
 #include "TestModelH.h"
 #include <stdint.h>
+#include "ObjLoader.h"
+// #include <omp.h>
 
 using namespace std;
 using glm::vec3;
@@ -22,14 +24,15 @@ SDL_Event event;
 
 
 
-#define SCREEN_WIDTH 256
-#define SCREEN_HEIGHT 256
+#define SCREEN_WIDTH 512
+#define SCREEN_HEIGHT 512
 #define FULLSCREEN_MODE false
 #define PI 3.14159265358979323546
 
 vector<Triangle> triangles;
 vec4 cameraPos( 0, 0, -3.001,1 );
 float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
+vec3 screenBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
 float yaw = 0;
 vec4 lightPos(0,-0.5,-0.7,1);
 vec3 lightPower = 18.0f*vec3( 1, 1, 1 );
@@ -99,11 +102,46 @@ vector<ClippedTriangle> clipAxis(vector<ClippedTriangle> triangles,int plane);
 vector<Triangle> clipping(ClippedTriangle clippedTriangle);
 void computeOutcode(Vertex &v);
 vector<int> numVerticesOut(ClippedTriangle triangle, int plane);
+vec3 antiAliasing(int i , int j){
+    vec3 colour(0.0f,0.0f,0.0f);
+    float count = 0;
+    if( i < SCREEN_HEIGHT-1){
+       colour += screenBuffer[i+1][j];
+       count++;
+    }
+    if( i > 0 ){
+        colour += screenBuffer[i-1][j];
+        count++;
+    }
+    if ( j < SCREEN_WIDTH-1){
+        colour += screenBuffer[i][j+1];
+        count++;
+    }
+    if( j > 0){
+        colour += screenBuffer[i][j-1];
+        count++;
+    }
+
+    colour += screenBuffer[i][j];
+
+    colour /= count;
+
+
+
+    return colour;
+
+}
 
 int main( int argc, char* argv[] ){
   // testComputePolygonRows();
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
   LoadTestModel(triangles);
+  int objectCount =0;
+  if(loadOBJ("./Objects/bunny.obj",triangles)) {
+		cout << "Object " << objectCount << " loaded successfully!\n";
+		// cout << triangles[0].v1.x << "," << triangles[0].v1.y << "," << triangles[0].v1.z << endl;
+		objectCount ++;
+	}
 
   while ( Update())
     {
@@ -146,26 +184,13 @@ vector<Triangle>  clipping(ClippedTriangle clippedTriangle){
       keepTriangles.push_back(  Triangle(newTriangles[i].vertices[0].position,newTriangles[i].vertices[1].position,newTriangles[i].vertices[2].position,newTriangles[i].color));
       // cout << "Triangle added.\n";
     }
-    cout << "No. Triangles Addded " << keepTriangles.size() << endl;
+    // cout << "No. Triangles Addded " << keepTriangles.size() << endl;
     return keepTriangles;
 }
 vector<ClippedTriangle> clipAxis(vector<ClippedTriangle> triangles,int plane){
     vector<ClippedTriangle> newTriangles;
 
-    switch(plane){
-      case TOP:
-        // cout << "CLIPPING TOP \n";
-        break;
-      case BOTTOM:
-        // cout << "CLIPPING BOTTOM \n";
-        break;
-      case RIGHT:
-        // cout << "CLIPPING RIGHT \n";
-        break;
-      case LEFT:
-        // cout << "CLIPPING LEFT \n";
-        break;
-    }
+
     for (int i = 0; i < triangles.size(); i++) {
       ClippedTriangle clippedTriangle = triangles[i];
       vec3 colour = clippedTriangle.color;
@@ -246,6 +271,13 @@ vector<ClippedTriangle> clipAxis(vector<ClippedTriangle> triangles,int plane){
       }
 
     }
+    // for (size_t i = 0; i < 2; i++) {
+    //   cout << newTriangles[i].vertices[0].position.x <<","<< newTriangles[i].vertices[0].position.y<< "," << newTriangles[i].vertices[0].position.z << endl ;
+    //   cout << newTriangles[i].vertices[1].position.x <<","<< newTriangles[i].vertices[1].position.y<< "," << newTriangles[i].vertices[1].position.z << endl ;
+    //   cout << newTriangles[i].vertices[2].position.x <<","<< newTriangles[i].vertices[2].position.y<< "," << newTriangles[i].vertices[2].position.z << endl << endl;
+    //   /* code */
+    // }
+
 
     return newTriangles;
 
@@ -307,9 +339,12 @@ void Draw(screen* screen){
     /* Clear buffer */
     memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
     // clears the depth buffer
-    for( int y=0; y<SCREEN_HEIGHT; ++y )
-        for( int x=0; x<SCREEN_WIDTH; ++x )
+    for( int y=0; y<SCREEN_HEIGHT; ++y ){
+        for( int x=0; x<SCREEN_WIDTH; ++x ){
             depthBuffer[y][x] = 0;
+            screenBuffer[y][x] = vec3(0.0f,0.0f,0.0f);
+        }
+    }
 
     vec3 colour(1.0,1.0,1.0);
     vector<Vertex> triangleVerts(3);
@@ -321,7 +356,7 @@ void Draw(screen* screen){
     // boolean to add triangles that do not need to be clipped
     bool addTriangle;
     // CLIPPING - Getting rid of the triangles that are off of the screen
-    for(int i=0; i<triangles.size(); i++){
+    for(int i=0; i< triangles.size(); i++){
 
         addTriangle = true;
         triangleVerts[0].position = triangles[i].v0;
@@ -352,20 +387,22 @@ void Draw(screen* screen){
             clippedTriangles.push_back(clippedTri);
         }
     }
-    cout << "No. of Triangles Clipped: " << clippedTriangles.size() << "\n" << endl << endl;
-
+    // cout << "No. of Triangles Clipped: " << clippedTriangles.size() << "\n" << endl << endl;
+    // #pragma omp parallel for
     for(int i = 0; i < clippedTriangles.size();i++){
         newTriangles = clipping(clippedTriangles[i]);
-        cout << "Done " << i << endl;
+        // cout << "Done " << i << endl;
         for(int i = 0; i < newTriangles.size();i++){
             keepTriangles.push_back(newTriangles[i]);
         }
+
     }
 
 
     //Draws the keep triangles
     vector<Vertex> keepTriangleVerts(3);
-    cout << "Number of Triangles  " << keepTriangles.size() << endl;
+    // cout << "Number of Triangles  " << keepTriangles.size() << endl;
+    // #pragma omp parallel for
     for(int i=0; i<keepTriangles.size(); i++)
     {
         // cout << "Computing No. " << i << endl;
@@ -381,6 +418,11 @@ void Draw(screen* screen){
         // cout << "HERE\n";
         DrawPolygon(keepTriangleVerts,screen);
         // cout << "FINISHED DRAWING\n";
+    }
+    for (int i = 0; i < SCREEN_HEIGHT; i++) {
+      for (int j = 0; j < SCREEN_WIDTH; j++) {
+          PutPixelSDL( screen, j, i, antiAliasing(i,j));
+      }
     }
 }
 vec4 intersection(vec4 q1, vec4 q2,int plane){
@@ -412,7 +454,7 @@ vec4 intersection(vec4 q1, vec4 q2,int plane){
 
     // float t = ( c1.w - (SCREEN_WIDTH/2)*c1.y )/( ( c1.w - (SCREEN_WIDTH/2)*c1.y  ) - ( c2.w - (SCREEN_WIDTH/2)*c2.y ) );
     vec4 intersection = (c1 + t*(c2 - c1)) + cameraPos ;
-    // cout << "Intersection: ";
+    // cout << plane << " Intersection: ";
     // cout << "( " << intersection.x << "," << intersection.y <<  "," << intersection.z << "," << intersection.w << ")" << "\n";
     return intersection;
 
@@ -425,13 +467,21 @@ void PixelShader( const Pixel& p,screen* screen){
 
     vec3 power = light(p.pos3d);
     vec3 illumination = (power + indirectLightPowerPerArea) * currentReflectance;
+
+
+
+
     // cout << "colour val  = " << p.illumination.x;
+
     if( p.zinv > depthBuffer[y][x] )
     {
-
+        screenBuffer[y][x] = illumination;
         depthBuffer[y][x] = p.zinv;
-        PutPixelSDL( screen, x, y, illumination);
+        // PutPixelSDL( screen, x, y, illumination);
+
+
     }
+
 }
 void DrawPolygonEdges( const vector<vec4>& vertices, screen* screen ){
     int V = vertices.size();
@@ -523,7 +573,6 @@ void VertexShader( const Vertex& v, Pixel& p){
 
     p.x = (f * (temp.x/temp.z)) + (SCREEN_WIDTH /2);
     p.y = (f * (temp.y/temp.z)) + (SCREEN_HEIGHT /2);
-
 }
 void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels ){
 
@@ -805,7 +854,6 @@ void Interpolate( Pixel a, Pixel b, vector<Pixel>& result ){
         result[i].pos3d.x = result[i].pos3d.x / result[i].zinv;
         result[i].pos3d.y = result[i].pos3d.y / result[i].zinv;
     }
-
 }
 void Interpolate( vec2 a, vec2 b, vector<ivec2>& result ){
     int N = result.size();
@@ -874,6 +922,7 @@ void DrawPolygonRows( const vector<Pixel>& leftPixels,const vector<Pixel>& right
 
             // }
             PixelShader(currrentRow[j],screen);
+
         }
     }
 }

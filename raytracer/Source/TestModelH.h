@@ -98,7 +98,7 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	B = vec4(130,0, 65,1);
 	C = vec4(240,0,272,1);
 	D = vec4( 82,0,225,1);
-	       
+
 	E = vec4(290,165,114,1);
 	F = vec4(130,165, 65,1);
 	G = vec4(240,165,272,1);
@@ -131,31 +131,31 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	B = vec4(265,0,296,1);
 	C = vec4(472,0,406,1);
 	D = vec4(314,0,456,1);
-	       
+
 	E = vec4(423,330,247,1);
 	F = vec4(265,330,296,1);
 	G = vec4(472,330,406,1);
 	H = vec4(314,330,456,1);
 
 	// Front
-	triangles.push_back( Triangle(E,B,A,blue,true) );
-	triangles.push_back( Triangle(E,F,B,blue,true) );
+	triangles.push_back( Triangle(E,B,A,blue,false) );
+	triangles.push_back( Triangle(E,F,B,blue,false) );
 
 	// Front
-	triangles.push_back( Triangle(F,D,B,blue,true) );
-	triangles.push_back( Triangle(F,H,D,blue,true) );
+	triangles.push_back( Triangle(F,D,B,blue,false) );
+	triangles.push_back( Triangle(F,H,D,blue,false) );
 
 	// BACK
-	triangles.push_back( Triangle(H,C,D,blue,true) );
-	triangles.push_back( Triangle(H,G,C,blue,true) );
+	triangles.push_back( Triangle(H,C,D,blue,false) );
+	triangles.push_back( Triangle(H,G,C,blue,false) );
 
 	// LEFT
-	triangles.push_back( Triangle(G,E,C,blue,true) );
-	triangles.push_back( Triangle(E,A,C,blue,true) );
+	triangles.push_back( Triangle(G,E,C,blue,false) );
+	triangles.push_back( Triangle(E,A,C,blue,false) );
 
 	// TOP
-	triangles.push_back( Triangle(G,F,E,blue,true) );
-	triangles.push_back( Triangle(G,H,F,blue,true) );
+	triangles.push_back( Triangle(G,F,E,blue,false) );
+	triangles.push_back( Triangle(G,H,F,blue,false) );
 
 
 	// ----------------------------------------------
@@ -182,7 +182,7 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 		triangles[i].v0.w = 1.0;
 		triangles[i].v1.w = 1.0;
 		triangles[i].v2.w = 1.0;
-		
+
 		triangles[i].ComputeNormal();
 	}
 }
