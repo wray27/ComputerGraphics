@@ -30,7 +30,7 @@ SDL_Event event;
 vector<Triangle> triangles;
 vec4 cameraPos( 0, 0, -3.001,1 );
 float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
-float screenBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
+vec3 screenBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
 float yaw = 0;
 vec4 lightPos(0,-0.5,-0.7,1);
 vec3 lightPower = 18.0f*vec3( 1, 1, 1 );
@@ -100,7 +100,33 @@ vector<ClippedTriangle> clipAxis(vector<ClippedTriangle> triangles,int plane);
 vector<Triangle> clipping(ClippedTriangle clippedTriangle);
 void computeOutcode(Vertex &v);
 vector<int> numVerticesOut(ClippedTriangle triangle, int plane);
-void antiAliasing(){
+vec3 antiAliasing(int i , int j, vec3 power ){
+    vec3 colour(0.0f,0.0f,0.0f);
+    float count = 0;
+    if( i < SCREEN_HEIGHT-1){
+       colour += screenBuffer[i+1][j]; 
+       count++;
+    }
+    if( i > 0 ){
+        colour += screenBuffer[i-1][j];
+        count++;
+    }
+    if ( j < SCREEN_WIDTH-1){
+        colour += screenBuffer[i][j+1];
+        count++;
+    }
+    if( j > 0){
+        colour += screenBuffer[i][j-1];
+        count++;
+    }
+    
+    colour += screenBuffer[i][j];
+
+    colour /= count;
+    vec3 illumination = (power + indirectLightPowerPerArea) * colour;
+      
+
+    return illumination;
 
 }
 
@@ -305,10 +331,12 @@ void Draw(screen* screen){
     /* Clear buffer */
     memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
     // clears the depth buffer
-    for( int y=0; y<SCREEN_HEIGHT; ++y )
-        for( int x=0; x<SCREEN_WIDTH; ++x )
+    for( int y=0; y<SCREEN_HEIGHT; ++y ){
+        for( int x=0; x<SCREEN_WIDTH; ++x ){
             depthBuffer[y][x] = 0;
-            screenBuffer[y][x] = 0;
+            screenBuffer[y][x] = vec3(0.0f,0.0f,0.0f);
+        }
+    }
 
     vec3 colour(1.0,1.0,1.0);
     vector<Vertex> triangleVerts(3);
@@ -425,22 +453,19 @@ void PixelShader( const Pixel& p,screen* screen){
 
     vec3 power = light(p.pos3d);
     vec3 illumination = (power + indirectLightPowerPerArea) * currentReflectance;
-
-    for(int i = 0; i < SCREEN_HEIGHT; i++){
-      for(int j =0;j < SCREEN_WIDTH; j++){
-        screenBuffer[i][j] = illumination;
-      }
-    }
+    
+    
+    screenBuffer[y][x] = currentReflectance;
+  
     // cout << "colour val  = " << p.illumination.x;
 
     if( p.zinv > depthBuffer[y][x] )
     {
-
-      depthBuffer[y][x] = p.zinv;
-      putPixelSDL( screen, x, y, illumination);
-  }
-
-
+        depthBuffer[y][x] = p.zinv;
+        PutPixelSDL( screen, x, y, illumination);
+        // PutPixelSDL( screen, x, y, antiAliasing(y,x,power));
+         
+    }
 
 }
 void DrawPolygonEdges( const vector<vec4>& vertices, screen* screen ){
@@ -533,7 +558,6 @@ void VertexShader( const Vertex& v, Pixel& p){
 
     p.x = (f * (temp.x/temp.z)) + (SCREEN_WIDTH /2);
     p.y = (f * (temp.y/temp.z)) + (SCREEN_HEIGHT /2);
-
 }
 void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels ){
 
@@ -815,7 +839,6 @@ void Interpolate( Pixel a, Pixel b, vector<Pixel>& result ){
         result[i].pos3d.x = result[i].pos3d.x / result[i].zinv;
         result[i].pos3d.y = result[i].pos3d.y / result[i].zinv;
     }
-
 }
 void Interpolate( vec2 a, vec2 b, vector<ivec2>& result ){
     int N = result.size();
