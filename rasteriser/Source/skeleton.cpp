@@ -4,6 +4,7 @@
 #include "SDLauxiliary.h"
 #include "TestModelH.h"
 #include <stdint.h>
+#include "ObjLoader.h"
 
 using namespace std;
 using glm::vec3;
@@ -104,7 +105,7 @@ vec3 antiAliasing(int i , int j, vec3 power ){
     vec3 colour(0.0f,0.0f,0.0f);
     float count = 0;
     if( i < SCREEN_HEIGHT-1){
-       colour += screenBuffer[i+1][j]; 
+       colour += screenBuffer[i+1][j];
        count++;
     }
     if( i > 0 ){
@@ -119,12 +120,12 @@ vec3 antiAliasing(int i , int j, vec3 power ){
         colour += screenBuffer[i][j-1];
         count++;
     }
-    
+
     colour += screenBuffer[i][j];
 
     colour /= count;
     vec3 illumination = (power + indirectLightPowerPerArea) * colour;
-      
+
 
     return illumination;
 
@@ -134,6 +135,12 @@ int main( int argc, char* argv[] ){
   // testComputePolygonRows();
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
   LoadTestModel(triangles);
+  int objectCount =0;
+  if(loadOBJ("./Objects/bunny.obj",triangles)) {
+		cout << "Object " << objectCount << " loaded successfully!\n";
+		cout << triangles[0].v1.x << "," << triangles[0].v1.y << "," << triangles[0].v1.z << endl;
+		objectCount ++;
+	}
 
   while ( Update())
     {
@@ -453,18 +460,19 @@ void PixelShader( const Pixel& p,screen* screen){
 
     vec3 power = light(p.pos3d);
     vec3 illumination = (power + indirectLightPowerPerArea) * currentReflectance;
-    
-    
-    screenBuffer[y][x] = currentReflectance;
-  
+
+
+
+
     // cout << "colour val  = " << p.illumination.x;
 
     if( p.zinv > depthBuffer[y][x] )
     {
+        screenBuffer[y][x] = currentReflectance;
         depthBuffer[y][x] = p.zinv;
         PutPixelSDL( screen, x, y, illumination);
         // PutPixelSDL( screen, x, y, antiAliasing(y,x,power));
-         
+
     }
 
 }
