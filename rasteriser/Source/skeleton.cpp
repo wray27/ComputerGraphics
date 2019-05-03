@@ -5,6 +5,7 @@
 #include "TestModelH.h"
 #include <stdint.h>
 #include "ObjLoader.h"
+// #include <omp.h>
 
 using namespace std;
 using glm::vec3;
@@ -101,7 +102,7 @@ vector<ClippedTriangle> clipAxis(vector<ClippedTriangle> triangles,int plane);
 vector<Triangle> clipping(ClippedTriangle clippedTriangle);
 void computeOutcode(Vertex &v);
 vector<int> numVerticesOut(ClippedTriangle triangle, int plane);
-vec3 antiAliasing(int i , int j, vec3 power ){
+vec3 antiAliasing(int i , int j){
     vec3 colour(0.0f,0.0f,0.0f);
     float count = 0;
     if( i < SCREEN_HEIGHT-1){
@@ -124,10 +125,10 @@ vec3 antiAliasing(int i , int j, vec3 power ){
     colour += screenBuffer[i][j];
 
     colour /= count;
-    vec3 illumination = (power + indirectLightPowerPerArea) * colour;
 
 
-    return illumination;
+
+    return colour;
 
 }
 
@@ -138,7 +139,7 @@ int main( int argc, char* argv[] ){
   int objectCount =0;
   if(loadOBJ("./Objects/bunny.obj",triangles)) {
 		cout << "Object " << objectCount << " loaded successfully!\n";
-		cout << triangles[0].v1.x << "," << triangles[0].v1.y << "," << triangles[0].v1.z << endl;
+		// cout << triangles[0].v1.x << "," << triangles[0].v1.y << "," << triangles[0].v1.z << endl;
 		objectCount ++;
 	}
 
@@ -387,7 +388,7 @@ void Draw(screen* screen){
         }
     }
     // cout << "No. of Triangles Clipped: " << clippedTriangles.size() << "\n" << endl << endl;
-
+    // #pragma omp parallel for
     for(int i = 0; i < clippedTriangles.size();i++){
         newTriangles = clipping(clippedTriangles[i]);
         // cout << "Done " << i << endl;
@@ -401,6 +402,7 @@ void Draw(screen* screen){
     //Draws the keep triangles
     vector<Vertex> keepTriangleVerts(3);
     // cout << "Number of Triangles  " << keepTriangles.size() << endl;
+    // #pragma omp parallel for
     for(int i=0; i<keepTriangles.size(); i++)
     {
         // cout << "Computing No. " << i << endl;
@@ -416,6 +418,11 @@ void Draw(screen* screen){
         // cout << "HERE\n";
         DrawPolygon(keepTriangleVerts,screen);
         // cout << "FINISHED DRAWING\n";
+    }
+    for (int i = 0; i < SCREEN_HEIGHT; i++) {
+      for (int j = 0; j < SCREEN_WIDTH; j++) {
+          PutPixelSDL( screen, j, i, antiAliasing(i,j));
+      }
     }
 }
 vec4 intersection(vec4 q1, vec4 q2,int plane){
@@ -468,10 +475,10 @@ void PixelShader( const Pixel& p,screen* screen){
 
     if( p.zinv > depthBuffer[y][x] )
     {
-        screenBuffer[y][x] = currentReflectance;
+        screenBuffer[y][x] = illumination;
         depthBuffer[y][x] = p.zinv;
-        PutPixelSDL( screen, x, y, illumination);
-        // PutPixelSDL( screen, x, y, antiAliasing(y,x,power));
+        // PutPixelSDL( screen, x, y, illumination);
+
 
     }
 
@@ -915,6 +922,7 @@ void DrawPolygonRows( const vector<Pixel>& leftPixels,const vector<Pixel>& right
 
             // }
             PixelShader(currrentRow[j],screen);
+
         }
     }
 }
